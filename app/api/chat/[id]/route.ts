@@ -6,7 +6,7 @@ import OpenAI from 'openai'
 // Route through the OpenClaw gateway — no separate API key needed
 const openai = new OpenAI({
   baseURL: 'http://localhost:18789/v1',
-  apiKey: process.env.OPENCLAW_GATEWAY_TOKEN || 'REDACTED_TOKEN',
+  apiKey: process.env.OPENCLAW_GATEWAY_TOKEN,
 })
 
 export async function POST(
