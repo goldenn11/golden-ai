@@ -68,41 +68,71 @@ export default function CronsPage() {
     idle: crons.filter((c) => c.status === "idle").length,
   };
 
-  const pills: { key: Filter; label: string; dotClass: string; dotStyle?: React.CSSProperties }[] = [
-    { key: "all", label: "All", dotClass: "", dotStyle: { background: 'var(--text-primary)' } },
-    { key: "ok", label: "Passing", dotClass: "bg-[#30d158]" },
-    { key: "error", label: "Errors", dotClass: "bg-[#ff453a]" },
-    { key: "idle", label: "Idle", dotClass: "", dotStyle: { background: 'var(--text-tertiary)' } },
+  const pills: {
+    key: Filter;
+    label: string;
+    dotColor: string;
+  }[] = [
+    { key: "all", label: "All", dotColor: "var(--text-primary)" },
+    { key: "ok", label: "Passing", dotColor: "var(--system-green)" },
+    { key: "error", label: "Errors", dotColor: "var(--system-red)" },
+    { key: "idle", label: "Idle", dotColor: "var(--text-tertiary)" },
   ];
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div
+      className="h-full flex flex-col overflow-hidden"
+      style={{ background: "var(--bg)" }}
+    >
       {/* Header */}
       <div
-        className="sticky top-0 z-10 backdrop-blur px-6 py-4 flex items-center justify-between flex-shrink-0"
-        style={{ background: 'var(--bg-elevated)', boxShadow: `0 1px 0 var(--border)` }}
+        className="sticky top-0 z-10 flex-shrink-0 px-6 flex items-center justify-between"
+        style={{
+          height: 64,
+          background: "var(--material-regular)",
+          backdropFilter: "blur(40px) saturate(180%)",
+          WebkitBackdropFilter: "blur(40px) saturate(180%)",
+          borderBottom: "1px solid var(--separator)",
+        }}
       >
         <div className="flex items-center gap-3">
-          <h1 className="text-[20px] font-semibold" style={{ color: 'var(--text-primary)' }}>Cron Monitor</h1>
-          <span className="text-[12px] font-mono rounded-full px-2 py-0.5" style={{ background: 'var(--bg-fill-2)', color: 'var(--text-secondary)' }}>
+          <h1
+            className="text-[28px] font-bold"
+            style={{
+              color: "var(--text-primary)",
+              letterSpacing: "-0.5px",
+            }}
+          >
+            Cron Monitor
+          </h1>
+          <span
+            className="text-[13px] font-medium rounded-full px-2.5 py-0.5"
+            style={{
+              background: "var(--fill-secondary)",
+              color: "var(--text-secondary)",
+            }}
+          >
             {crons.length}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+          <span
+            className="text-[12px]"
+            style={{ color: "var(--text-tertiary)" }}
+          >
             Updated {timeAgo(lastRefresh.toISOString())}
           </span>
           <button
             onClick={refresh}
-            className="hover:opacity-80 transition-colors text-[16px]"
-            style={{ color: 'var(--text-tertiary)' }}
+            className="hover:opacity-80 transition-opacity text-[16px]"
+            style={{ color: "var(--text-tertiary)" }}
           >
             &#8635;
           </button>
         </div>
       </div>
 
-      {/* Summary pills */}
+      {/* Filter pills */}
       <div className="px-6 py-3 flex items-center gap-2 overflow-x-auto flex-shrink-0">
         {pills.map((pill) => {
           const isActive = filter === pill.key;
@@ -110,29 +140,41 @@ export default function CronsPage() {
             <button
               key={pill.key}
               onClick={() => setFilter(pill.key)}
-              className={`flex items-center gap-2 rounded-full px-3 py-1.5 transition-all flex-shrink-0 ${
-                isActive
-                  ? "ring-1"
-                  : ""
-              }`}
-              style={isActive
-                ? { background: 'var(--accent-dim)', boxShadow: `0 0 0 1px var(--accent-ring)` }
-                : { background: 'var(--bg-grouped)' }
-              }
+              className="flex items-center gap-2 flex-shrink-0"
+              style={{
+                borderRadius: 20,
+                padding: "6px 14px",
+                fontSize: 13,
+                fontWeight: 500,
+                transition: "all 200ms var(--ease-smooth)",
+                ...(isActive
+                  ? {
+                      background: "var(--accent-fill)",
+                      color: "var(--accent)",
+                      boxShadow: "0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent)",
+                    }
+                  : {
+                      background: "var(--fill-secondary)",
+                      color: "var(--text-primary)",
+                    }),
+              }}
             >
               <span
-                className={`w-1.5 h-1.5 rounded-full ${pill.dotClass} ${
+                className={`w-[6px] h-[6px] rounded-full flex-shrink-0 ${
                   pill.key === "error" && counts.error > 0
                     ? "animate-error-pulse"
                     : ""
                 }`}
-                style={pill.dotStyle}
+                style={{ background: pill.dotColor }}
               />
-              <span className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <span>{pill.label}</span>
+              <span
+                className="font-semibold"
+                style={{
+                  color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                }}
+              >
                 {counts[pill.key]}
-              </span>
-              <span className="text-[12px]" style={{ color: 'var(--text-secondary)' }}>
-                {pill.label}
               </span>
             </button>
           );
@@ -140,75 +182,141 @@ export default function CronsPage() {
       </div>
 
       {/* Cron list */}
-      <div className="flex-1 overflow-y-auto px-4 pb-6">
+      <div className="flex-1 overflow-y-auto px-6 pb-6">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm animate-pulse" style={{ color: 'var(--accent)' }}>
+          <div
+            className="flex items-center justify-center h-32 text-[15px] animate-pulse"
+            style={{ color: "var(--text-secondary)" }}
+          >
             Loading crons...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-[15px]" style={{ color: 'var(--text-secondary)' }}>
+          <div
+            className="flex items-center justify-center h-32 text-[15px]"
+            style={{ color: "var(--text-secondary)" }}
+          >
             No crons match this filter
           </div>
         ) : (
-          <div className="rounded-xl overflow-hidden glass-card" style={{ background: 'var(--bg-elevated)' }}>
+          <div
+            style={{
+              borderRadius: "var(--radius-md)",
+              overflow: "hidden",
+              background: "var(--material-regular)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+            }}
+          >
             {filtered.map((cron, idx) => {
-              const agent = cron.agentId ? agentMap.get(cron.agentId) : null;
+              const agent = cron.agentId
+                ? agentMap.get(cron.agentId)
+                : null;
               const isExpanded = expanded === cron.id;
               const isError = cron.status === "error";
-              const isLast = idx === filtered.length - 1;
+              const isFirst = idx === 0;
 
               return (
                 <div key={cron.id}>
+                  {/* Separator between rows (not on first) */}
+                  {!isFirst && (
+                    <div
+                      style={{
+                        height: 1,
+                        background: "var(--separator)",
+                        marginLeft: 16,
+                        marginRight: 16,
+                      }}
+                    />
+                  )}
+
                   {/* Row */}
                   <div
-                    onClick={() => setExpanded(isExpanded ? null : cron.id)}
-                    className="flex items-center px-4 py-3 cursor-pointer transition-colors"
+                    onClick={() =>
+                      setExpanded(isExpanded ? null : cron.id)
+                    }
+                    className="flex items-center cursor-pointer transition-colors"
                     style={{
-                      background: isError ? 'rgba(255,69,58,0.06)' : undefined,
-                      borderBottom: !isLast && !isExpanded ? '1px solid var(--border-light)' : undefined,
+                      minHeight: 44,
+                      padding: "0 16px",
+                      background: isError
+                        ? "rgba(255,69,58,0.06)"
+                        : undefined,
+                      borderLeft: isError
+                        ? "3px solid var(--system-red)"
+                        : "3px solid transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isError)
+                        e.currentTarget.style.background =
+                          "var(--material-ultra-thin)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isError)
+                        e.currentTarget.style.background = "";
                     }}
                   >
                     {/* Status dot */}
                     <span
                       className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        cron.status === "ok" ? "bg-[#30d158]" : cron.status === "error" ? "bg-[#ff453a] animate-error-pulse" : ""
+                        cron.status === "error" && counts.error > 0
+                          ? "animate-error-pulse"
+                          : ""
                       }`}
-                      style={cron.status === "idle" ? { background: 'var(--text-tertiary)' } : undefined}
+                      style={{
+                        background:
+                          cron.status === "ok"
+                            ? "var(--system-green)"
+                            : cron.status === "error"
+                              ? "var(--system-red)"
+                              : "var(--text-tertiary)",
+                      }}
                     />
 
                     {/* Name */}
-                    <span className="text-[14px] font-medium ml-3 truncate" style={{ color: 'var(--text-primary)' }}>
+                    <span
+                      className="text-[15px] font-medium ml-3 truncate"
+                      style={{ color: "var(--text-primary)" }}
+                    >
                       {cron.name}
                     </span>
 
-                    {/* Agent link pushed right */}
+                    {/* Right side: agent link, schedule, chevron */}
                     <div className="ml-auto flex items-center gap-3 flex-shrink-0">
                       {agent ? (
                         <Link
-                          href={`/agents/${agent.id}`}
+                          href={`/chat/${agent.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-[12px] hover:underline transition-colors"
-                          style={{ color: 'var(--blue)' }}
+                          className="text-[13px] hover:underline transition-colors"
+                          style={{ color: "var(--system-blue)" }}
                         >
                           {agent.name}
                         </Link>
                       ) : (
-                        <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        <span
+                          className="text-[13px]"
+                          style={{ color: "var(--text-tertiary)" }}
+                        >
                           {"\u2014"}
                         </span>
                       )}
 
                       {/* Schedule */}
-                      <span className="text-[12px] font-mono" style={{ color: 'var(--text-secondary)' }}>
+                      <span
+                        className="text-[12px] font-mono"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
                         {cron.schedule}
                       </span>
 
                       {/* Chevron */}
                       <span
-                        className={`text-[14px] transition-transform ${
-                          isExpanded ? "rotate-90" : ""
-                        }`}
-                        style={{ color: 'var(--text-tertiary)' }}
+                        className="text-[13px] transition-transform"
+                        style={{
+                          color: "var(--text-tertiary)",
+                          transform: isExpanded
+                            ? "rotate(90deg)"
+                            : "rotate(0deg)",
+                        }}
                       >
                         &#8250;
                       </span>
@@ -217,26 +325,48 @@ export default function CronsPage() {
 
                   {/* Expanded detail */}
                   {isExpanded && (
-                    <div
-                      style={{
-                        borderBottom: !isLast ? '1px solid var(--border-light)' : undefined,
-                      }}
-                    >
+                    <div style={{ padding: "0 16px 12px 16px" }}>
                       {cron.lastError && (
-                        <div className="mx-4 my-3 px-4 py-3 rounded-r-lg" style={{ background: 'rgba(255,69,58,0.06)', borderLeft: '2px solid var(--red)' }}>
-                          <pre className="text-[13px] font-mono whitespace-pre-wrap" style={{ color: 'var(--red)' }}>
+                        <div
+                          className="mt-2 px-4 py-3"
+                          style={{
+                            borderRadius: "var(--radius-sm)",
+                            background: "rgba(255,69,58,0.06)",
+                            borderLeft:
+                              "3px solid var(--system-red)",
+                          }}
+                        >
+                          <pre
+                            className="text-[13px] font-mono whitespace-pre-wrap"
+                            style={{ color: "var(--system-red)" }}
+                          >
                             {cron.lastError}
                           </pre>
                         </div>
                       )}
-                      <div className="px-4 py-3 flex flex-wrap gap-x-6 gap-y-1">
-                        <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                      <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
+                        <span
+                          className="text-[12px]"
+                          style={{
+                            color: "var(--text-tertiary)",
+                          }}
+                        >
                           Last run: {timeAgo(cron.lastRun)}
                         </span>
-                        <span className="text-[12px]" style={{ color: 'var(--text-tertiary)' }}>
+                        <span
+                          className="text-[12px]"
+                          style={{
+                            color: "var(--text-tertiary)",
+                          }}
+                        >
                           Next run: {timeAgo(cron.nextRun)}
                         </span>
-                        <span className="text-[12px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                        <span
+                          className="text-[12px] font-mono"
+                          style={{
+                            color: "var(--text-tertiary)",
+                          }}
+                        >
                           ID: {cron.id}
                         </span>
                       </div>

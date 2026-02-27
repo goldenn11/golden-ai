@@ -10,7 +10,7 @@ const ManorMap = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex items-center justify-center h-full">
-        <div className="text-[13px] animate-pulse" style={{ color: 'var(--accent)' }}>
+        <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }} className="animate-pulse">
           Scanning the manor...
         </div>
       </div>
@@ -19,26 +19,20 @@ const ManorMap = dynamic(
 );
 
 const TOOL_ICONS: Record<string, string> = {
-  web_search: "🔍",
-  read: "📁",
-  write: "✏️",
-  exec: "💻",
-  web_fetch: "🌐",
-  message: "🔔",
-  tts: "💬",
+  web_search: "\uD83D\uDD0D", read: "\uD83D\uDCC1", write: "\u270F\uFE0F", exec: "\uD83D\uDCBB",
+  web_fetch: "\uD83C\uDF10", message: "\uD83D\uDD14", tts: "\uD83D\uDCAC",
 };
 
 function StatusDot({ status }: { status: CronJob["status"] }) {
-  const colors = {
-    ok: "bg-[#30d158]",
-    error: "bg-[#ff453a] animate-error-pulse",
-    idle: "",
-  };
   return (
-    <span
-      className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${colors[status]}`}
-      style={status === "idle" ? { background: 'var(--text-tertiary)' } : undefined}
-    />
+    <span style={{
+      display: 'inline-block',
+      width: '6px',
+      height: '6px',
+      borderRadius: '50%',
+      flexShrink: 0,
+      background: status === 'ok' ? 'var(--system-green)' : status === 'error' ? 'var(--system-red)' : 'var(--text-tertiary)',
+    }} />
   );
 }
 
@@ -55,21 +49,16 @@ export default function ManorPage() {
       fetch("/api/agents").then((r) => r.json()),
       fetch("/api/crons").then((r) => r.json()),
     ])
-      .then(([a, c]) => {
-        setAgents(a);
-        setCrons(c);
-      })
+      .then(([a, c]) => { setAgents(a); setCrons(c); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  const agentCrons = selected
-    ? crons.filter((c) => c.agentId === selected.id)
-    : [];
+  const agentCrons = selected ? crons.filter((c) => c.agentId === selected.id) : [];
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-full text-[13px]" style={{ color: 'var(--red)' }}>
+      <div className="flex items-center justify-center h-full" style={{ color: 'var(--system-red)', fontSize: '13px' }}>
         Error loading manor: {error}
       </div>
     );
@@ -81,7 +70,7 @@ export default function ManorPage() {
       <div className="flex-1 h-full">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-[13px] animate-pulse" style={{ color: 'var(--accent)' }}>
+            <div style={{ fontSize: '13px', color: 'var(--text-tertiary)' }} className="animate-pulse">
               Scanning the manor...
             </div>
           </div>
@@ -90,136 +79,258 @@ export default function ManorPage() {
         )}
       </div>
 
-      {/* Agent detail panel */}
+      {/* Detail panel */}
       {selected ? (
         <div
-          className="w-[320px] flex-shrink-0 flex flex-col overflow-y-auto animate-slide-in glass-card"
+          className="animate-slide-in-right"
           style={{
-            background: 'var(--bg-elevated)',
-            boxShadow: "-2px 0 20px rgba(0,0,0,0.5)",
+            width: '340px',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflowY: 'auto',
+            background: 'var(--material-regular)',
+            backdropFilter: 'var(--sidebar-backdrop)',
+            WebkitBackdropFilter: 'var(--sidebar-backdrop)',
+            boxShadow: 'var(--shadow-overlay)',
           }}
         >
-          {/* Close button row */}
-          <div className="px-5 pt-4 pb-0 flex justify-end">
+          {/* Color strip */}
+          <div style={{ height: '4px', background: selected.color, flexShrink: 0 }} />
+
+          {/* Close */}
+          <div style={{ padding: '16px 20px 0', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={() => setSelected(null)}
-              className="w-7 h-7 flex items-center justify-center rounded-full transition-colors text-[13px]"
-              style={{ background: 'var(--bg-fill-2)', color: 'var(--text-secondary)' }}
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'var(--fill-secondary)',
+                color: 'var(--text-secondary)',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '13px',
+                transition: 'all 150ms var(--ease-spring)',
+              }}
             >
               ✕
             </button>
           </div>
 
-          {/* Header — glass gradient overlay */}
-          <div className="px-5 pt-1 pb-4" style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 100%)',
-            borderRadius: 'var(--radius) var(--radius) 0 0',
-          }}>
-            <div className="text-[40px] leading-none mb-2">{selected.emoji}</div>
-            <h2 className="text-[22px] font-bold tracking-tight leading-tight" style={{ color: 'var(--text-primary)' }}>
+          {/* Header */}
+          <div style={{ padding: '8px 24px 20px' }}>
+            {/* Emoji on squircle */}
+            <div style={{
+              width: '64px',
+              height: '64px',
+              borderRadius: '16px',
+              background: `${selected.color}26`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '32px',
+              marginBottom: '12px',
+            }}>
+              {selected.emoji}
+            </div>
+
+            <h2 style={{
+              fontSize: '22px',
+              fontWeight: 700,
+              letterSpacing: '-0.5px',
+              color: 'var(--text-primary)',
+              margin: 0,
+              lineHeight: 1.2,
+            }}>
               {selected.name}
             </h2>
-            <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+
+            <p style={{
+              fontSize: '15px',
+              fontWeight: 400,
+              color: 'var(--text-secondary)',
+              margin: '2px 0 0',
+            }}>
               {selected.title}
             </p>
 
-            {/* Color indicator pill */}
-            <span
-              className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-medium"
-              style={{
-                backgroundColor: `${selected.color}26`,
-                color: selected.color,
-              }}
-            >
+            {/* Color badge */}
+            <span style={{
+              display: 'inline-block',
+              marginTop: '8px',
+              padding: '2px 10px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 500,
+              background: `${selected.color}33`,
+              color: selected.color,
+            }}>
               {selected.color}
             </span>
           </div>
 
           {/* Description */}
-          <div className="px-5 pb-4">
-            <p className="text-[14px] leading-[1.6]" style={{ color: 'var(--text-secondary)' }}>
+          <div style={{ padding: '0 24px 16px' }}>
+            <p style={{
+              fontSize: '14px',
+              lineHeight: 1.65,
+              color: 'var(--text-secondary)',
+              margin: 0,
+            }}>
               {selected.description}
             </p>
           </div>
 
-          {/* Tools section */}
-          <div className="px-5 pb-4">
-            <div className="text-[10px] font-semibold tracking-[0.08em] uppercase mt-5 mb-2" style={{ color: 'var(--text-tertiary)' }}>
+          {/* Tools */}
+          <div style={{ padding: '0 24px 16px' }}>
+            <div style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase' as const,
+              color: 'var(--text-tertiary)',
+              marginBottom: '8px',
+            }}>
               Tools
             </div>
             <div className="flex flex-wrap gap-1.5">
               {selected.tools.map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 text-[11px] font-mono px-2.5 py-1 rounded-full"
-                  style={{ background: 'var(--bg-fill-2)', color: 'var(--text-secondary)' }}
-                >
-                  {TOOL_ICONS[t] && (
-                    <span className="text-[10px]">{TOOL_ICONS[t]}</span>
-                  )}
+                <span key={t} style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: 'var(--fill-secondary)',
+                  borderRadius: '8px',
+                  padding: '5px 10px',
+                  fontSize: '12px',
+                  fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-secondary)',
+                }}>
+                  {TOOL_ICONS[t] && <span style={{ fontSize: '11px' }}>{TOOL_ICONS[t]}</span>}
                   {t}
                 </span>
               ))}
             </div>
           </div>
 
-          {/* Crons section */}
+          {/* Crons */}
           {agentCrons.length > 0 && (
-            <div className="px-5 pb-4">
-              <div className="text-[10px] font-semibold tracking-[0.08em] uppercase mt-5 mb-2" style={{ color: 'var(--text-tertiary)' }}>
+            <div style={{ padding: '0 24px 16px' }}>
+              <div style={{
+                fontSize: '11px',
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase' as const,
+                color: 'var(--text-tertiary)',
+                marginBottom: '8px',
+              }}>
                 Crons
               </div>
-              <div className="space-y-2.5">
-                {agentCrons.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2">
+              <div style={{
+                borderRadius: 'var(--radius-md)',
+                overflow: 'hidden',
+              }}>
+                {agentCrons.map((c, idx) => (
+                  <div key={c.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    minHeight: '44px',
+                    padding: '0 12px',
+                    borderTop: idx > 0 ? '1px solid var(--separator)' : undefined,
+                  }}>
                     <StatusDot status={c.status} />
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[13px] font-mono truncate block" style={{ color: 'var(--text-primary)' }}>
-                        {c.name}
-                      </span>
-                      <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                        {c.schedule}
-                      </span>
-                    </div>
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      color: 'var(--text-primary)',
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {c.name}
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      fontFamily: 'var(--font-mono)',
+                      color: 'var(--text-tertiary)',
+                      flexShrink: 0,
+                    }}>
+                      {c.schedule}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Actions — pinned to bottom */}
-          <div className="mt-auto px-5 py-5 space-y-2">
+          {/* CTA */}
+          <div style={{ marginTop: 'auto', padding: '20px 24px' }}>
             <button
               onClick={() => router.push(`/chat/${selected.id}`)}
-              className="w-full font-semibold text-[15px] py-3 rounded-xl transition-colors"
-              style={{ background: 'var(--accent)', color: '#000' }}
+              style={{
+                width: '100%',
+                height: '50px',
+                borderRadius: '14px',
+                background: 'var(--accent)',
+                color: '#000',
+                fontWeight: 600,
+                fontSize: '15px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 150ms var(--ease-spring)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(0.98)';
+                e.currentTarget.style.boxShadow = '0 0 20px rgba(245,197,24,0.30)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+              onMouseDown={(e) => {
+                e.currentTarget.style.transform = 'scale(0.96)';
+              }}
+              onMouseUp={(e) => {
+                e.currentTarget.style.transform = 'scale(0.98)';
+              }}
             >
               Open Chat
-            </button>
-            <button
-              onClick={() => router.push(`/agents/${selected.id}`)}
-              className="w-full text-[15px] py-3 rounded-xl transition-colors"
-              style={{ background: 'var(--bg-fill-2)', color: 'var(--text-primary)' }}
-            >
-              View Details
             </button>
           </div>
         </div>
       ) : (
-        /* Empty state — no agent selected */
-        <div
-          className="w-[320px] flex-shrink-0 flex items-center justify-center glass-card"
-          style={{
-            background: 'var(--bg-elevated)',
-            boxShadow: "-2px 0 20px rgba(0,0,0,0.5)",
-          }}
-        >
-          <div className="text-center px-6">
-            <div className="text-[48px] mb-3">🕵️</div>
-            <div className="text-[17px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+        /* Empty state */
+        <div style={{
+          width: '340px',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'var(--material-regular)',
+          backdropFilter: 'var(--sidebar-backdrop)',
+          WebkitBackdropFilter: 'var(--sidebar-backdrop)',
+          boxShadow: 'var(--shadow-overlay)',
+        }}>
+          <div style={{ textAlign: 'center', padding: '0 24px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>{"\uD83D\uDD75\uFE0F"}</div>
+            <div style={{
+              fontSize: '17px',
+              fontWeight: 600,
+              color: 'var(--text-primary)',
+            }}>
               Select an agent
             </div>
-            <div className="text-[13px] mt-1" style={{ color: 'var(--text-secondary)' }}>
+            <div style={{
+              fontSize: '13px',
+              color: 'var(--text-secondary)',
+              marginTop: '4px',
+            }}>
               Click any node on the map to inspect
             </div>
           </div>

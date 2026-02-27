@@ -7,6 +7,10 @@ interface AgentNodeProps {
 }
 
 export function AgentNode({ data }: AgentNodeProps) {
+  const hasCrons = data.crons && data.crons.length > 0;
+  const hasError = hasCrons && data.crons.some(c => c.status === 'error');
+  const hasOk = hasCrons && data.crons.some(c => c.status === 'ok');
+
   return (
     <>
       <Handle
@@ -15,50 +19,83 @@ export function AgentNode({ data }: AgentNodeProps) {
         style={{ background: "transparent", border: "none", width: 6, height: 6 }}
       />
       <div
-        className="relative w-[160px] px-3 py-2.5 cursor-pointer select-none transition-all duration-150 glass-card"
         style={{
-          borderRadius: 'var(--radius)',
-          background: "var(--bg-elevated)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow-sm), var(--inset-shine)",
+          width: '164px',
+          padding: '14px',
+          borderRadius: '18px',
+          background: 'var(--material-thin)',
+          border: '1px solid rgba(255,255,255,0.10)',
+          boxShadow: 'var(--shadow-card)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'all 200ms var(--ease-spring)',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow =
-            "var(--shadow-md), var(--inset-shine)";
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.18)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-overlay)';
+          e.currentTarget.style.transform = 'translateY(-1px)';
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow =
-            "var(--shadow-sm), var(--inset-shine)";
+          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)';
+          e.currentTarget.style.boxShadow = 'var(--shadow-card)';
+          e.currentTarget.style.transform = 'translateY(0)';
         }}
       >
-        {/* Colored dot — top right corner */}
-        <span
-          className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full flex-shrink-0"
-          style={{ background: data.color }}
-        />
-
-        {/* Top row: emoji + name */}
-        <div className="flex items-center gap-1.5 mb-0.5 pr-4">
-          <span className="text-[16px] leading-none">{data.emoji}</span>
-          <span className="font-semibold text-[13px] tracking-[-0.2px] truncate agent-name-glow" style={{ color: 'var(--text-primary)' }}>
-            {data.name}
-          </span>
+        {/* Top: emoji + status dot */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '18px', lineHeight: 1 }}>{data.emoji}</span>
+          <span style={{
+            width: '6px',
+            height: '6px',
+            borderRadius: '50%',
+            background: hasError ? 'var(--system-red)' : hasOk ? 'var(--system-green)' : 'var(--text-tertiary)',
+            flexShrink: 0,
+          }} />
         </div>
 
-        {/* Bottom row: title */}
-        <div className="text-[11px] leading-tight truncate" style={{ color: 'var(--text-secondary)' }}>
+        {/* Name */}
+        <div style={{
+          fontSize: '13px',
+          fontWeight: 600,
+          letterSpacing: '-0.2px',
+          color: 'var(--text-primary)',
+          marginTop: '8px',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {data.name}
+        </div>
+
+        {/* Title */}
+        <div style={{
+          fontSize: '11px',
+          fontWeight: 400,
+          color: 'var(--text-secondary)',
+          letterSpacing: '0.01em',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          marginTop: '2px',
+        }}>
           {data.title}
         </div>
 
         {/* Cron pill */}
-        {data.crons && data.crons.length > 0 && (
-          <div className="mt-1.5 flex items-center gap-1.5">
-            <span
-              className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{ background: 'var(--bg-fill-2)', color: 'var(--text-secondary)' }}
-            >
-              {data.crons.length} cron{data.crons.length > 1 ? "s" : ""}
-            </span>
+        {hasCrons && (
+          <div style={{
+            marginTop: '8px',
+            display: 'inline-block',
+            background: 'var(--fill-tertiary)',
+            borderRadius: '6px',
+            padding: '2px 8px',
+            fontSize: '10px',
+            fontWeight: 500,
+            color: 'var(--text-secondary)',
+          }}>
+            {data.crons.length} cron{data.crons.length > 1 ? 's' : ''}
           </div>
         )}
       </div>

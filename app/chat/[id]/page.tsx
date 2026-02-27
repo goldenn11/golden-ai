@@ -146,30 +146,42 @@ export default function ChatPage({
     ]);
   }
 
-  /* ─── Loading state ─── */
+  /* --- Loading state --- */
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ background: 'var(--bg)' }}>
-        <span className="text-[15px] animate-pulse" style={{ color: 'var(--accent)' }}>
+      <div
+        className="flex items-center justify-center h-full"
+        style={{ background: "var(--bg)" }}
+      >
+        <span
+          className="text-[15px] animate-pulse"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Connecting...
         </span>
       </div>
     );
   }
 
-  /* ─── Not found state ─── */
+  /* --- Not found state --- */
   if (!agent) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3" style={{ background: 'var(--bg)' }}>
-        <span className="text-[15px]" style={{ color: 'var(--text-secondary)' }}>
+      <div
+        className="flex flex-col items-center justify-center h-full gap-3"
+        style={{ background: "var(--bg)" }}
+      >
+        <span
+          className="text-[15px]"
+          style={{ color: "var(--text-secondary)" }}
+        >
           Agent not found
         </span>
         <Link
           href="/"
           className="text-[15px] hover:underline"
-          style={{ color: 'var(--blue)' }}
+          style={{ color: "var(--system-blue)" }}
         >
-          &larr; Back to Agents
+          &#8249; Back to Agents
         </Link>
       </div>
     );
@@ -178,45 +190,57 @@ export default function ChatPage({
   const hasInput = input.trim().length > 0;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
-      {/* ─── Color stripe ─── */}
+    <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
+      {/* --- Top agent color stripe --- */}
       <div
         className="h-[3px] w-full flex-shrink-0"
         style={{ backgroundColor: agent.color }}
       />
 
-      {/* ─── Header ─── */}
+      {/* --- Header --- */}
       <div
-        className="px-4 py-3 flex items-center justify-between flex-shrink-0"
-        style={{ background: 'var(--bg-elevated)', boxShadow: `0 1px 0 var(--border)` }}
+        className="flex items-center justify-between flex-shrink-0 px-4"
+        style={{
+          height: 56,
+          background: "var(--material-regular)",
+          backdropFilter: "blur(40px) saturate(180%)",
+          WebkitBackdropFilter: "blur(40px) saturate(180%)",
+          borderBottom: "1px solid var(--separator)",
+        }}
       >
-        {/* Left — back link */}
+        {/* Left -- back link */}
         <Link
           href="/"
           className="text-[15px] hover:opacity-80 transition-opacity flex-shrink-0"
-          style={{ color: 'var(--blue)' }}
+          style={{ color: "var(--system-blue)" }}
         >
-          &larr; Agents
+          &#8249; Agents
         </Link>
 
-        {/* Center — agent identity */}
+        {/* Center -- agent identity */}
         <div className="flex flex-col items-center min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[17px]">{agent.emoji}</span>
-            <span className="text-[17px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-              {agent.name}
-            </span>
-          </div>
-          <span className="text-[12px] truncate" style={{ color: 'var(--text-secondary)' }}>
+          <span
+            className="text-[17px] font-semibold truncate"
+            style={{
+              color: "var(--text-primary)",
+              letterSpacing: "-0.3px",
+            }}
+          >
+            {agent.name}
+          </span>
+          <span
+            className="text-[12px] truncate"
+            style={{ color: "var(--text-secondary)" }}
+          >
             {agent.title}
           </span>
         </div>
 
-        {/* Right — clear button */}
+        {/* Right -- clear/trash button */}
         <button
           onClick={clearChat}
-          className="hover:opacity-80 transition-colors text-[15px] flex-shrink-0"
-          style={{ color: 'var(--text-tertiary)' }}
+          className="hover:opacity-80 transition-opacity flex-shrink-0"
+          style={{ color: "var(--text-tertiary)" }}
           title="Clear conversation"
         >
           <svg
@@ -238,8 +262,11 @@ export default function ChatPage({
         </button>
       </div>
 
-      {/* ─── Messages ─── */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-1" style={{ background: 'var(--bg)' }}>
+      {/* --- Messages --- */}
+      <div
+        className="flex-1 overflow-y-auto space-y-1"
+        style={{ background: "#000", padding: 16 }}
+      >
         {messages.map((msg, i) => {
           const isUser = msg.role === "user";
           const showAvatar = shouldShowAvatar(messages, i);
@@ -260,16 +287,16 @@ export default function ChatPage({
               >
                 {/* Assistant avatar */}
                 {!isUser && (
-                  <div className="w-[24px] flex-shrink-0 mb-0.5">
+                  <div className="w-[28px] flex-shrink-0 mb-0.5">
                     {showAvatar ? (
                       <div
-                        className="w-[24px] h-[24px] rounded-full flex items-center justify-center text-[12px]"
+                        className="w-[28px] h-[28px] rounded-full flex items-center justify-center text-[13px]"
                         style={{ backgroundColor: agent.color }}
                       >
                         {agent.emoji}
                       </div>
                     ) : (
-                      <div className="w-[24px]" />
+                      <div className="w-[28px]" />
                     )}
                   </div>
                 )}
@@ -277,34 +304,40 @@ export default function ChatPage({
                 {/* Bubble */}
                 <div className="max-w-[75%] flex flex-col">
                   <div
-                    className={
-                      isUser
-                        ? "px-[14px] py-[10px] rounded-[20px] rounded-tr-[6px] text-[15px] font-medium text-black"
-                        : "px-[14px] py-[10px] rounded-[20px] rounded-tl-[6px] text-[15px] glass-card msg-assistant"
-                    }
+                    className={`px-[14px] py-[10px] text-[15px] ${isUser ? 'msg-user' : 'msg-assistant'}`}
                     style={
                       isUser
                         ? {
-                            background:
-                              "linear-gradient(135deg, var(--accent), #d4a800)",
-                            boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                            background: "var(--accent)",
+                            color: "#000",
+                            fontWeight: 500,
+                            borderRadius: "20px 20px 4px 20px",
+                            boxShadow: "0 1px 2px rgba(0,0,0,0.25)",
                           }
                         : {
-                            backgroundColor: "var(--bg-elevated)",
-                            border: "1px solid var(--border)",
-                            boxShadow: "var(--shadow-sm)",
-                            color: "var(--text-primary)",
+                            background: "rgba(255,255,255,0.08)",
+                            border: "1px solid rgba(255,255,255,0.10)",
+                            backdropFilter: "blur(20px)",
+                            WebkitBackdropFilter: "blur(20px)",
+                            borderRadius: "20px 20px 20px 4px",
+                            color: "#fff",
                           }
                     }
                   >
                     {msg.content}
                     {isLastAssistant && !msg.content && (
-                      <span className="animate-blink" style={{ color: 'var(--accent)' }}>
+                      <span
+                        className="animate-blink"
+                        style={{ color: "var(--accent)" }}
+                      >
                         &#9612;
                       </span>
                     )}
                     {isLastAssistant && msg.content && (
-                      <span className="animate-blink ml-0.5" style={{ color: 'var(--accent)' }}>
+                      <span
+                        className="animate-blink ml-0.5"
+                        style={{ color: "var(--accent)" }}
+                      >
                         &#9612;
                       </span>
                     )}
@@ -315,7 +348,7 @@ export default function ChatPage({
                     className={`text-[11px] mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ${
                       isUser ? "text-right mr-1" : "text-left ml-1"
                     }`}
-                    style={{ color: 'var(--text-tertiary)' }}
+                    style={{ color: "var(--text-tertiary)" }}
                   >
                     {timeStr(msg.timestamp)}
                   </span>
@@ -327,17 +360,19 @@ export default function ChatPage({
         <div ref={bottomRef} />
       </div>
 
-      {/* ─── Input area ─── */}
+      {/* --- Input area --- */}
       <div
-        className="px-4 pt-3 pb-2 flex-shrink-0 chat-input-area"
-        style={{ background: 'var(--bg-elevated)', boxShadow: `0 -1px 0 var(--border)` }}
+        className="px-4 pt-3 pb-2 flex-shrink-0"
+        style={{
+          background: "var(--material-regular)",
+          backdropFilter: "blur(40px) saturate(180%)",
+          WebkitBackdropFilter: "blur(40px) saturate(180%)",
+          borderTop: "1px solid var(--separator)",
+        }}
       >
         <div className="flex items-end gap-2">
-          {/* Input bubble */}
-          <div
-            className="flex-1 transition-colors duration-200"
-            style={{ borderRadius: '20px', background: 'var(--bg-grouped)', border: '1px solid var(--border)' }}
-          >
+          {/* Input field */}
+          <div className="flex-1">
             <textarea
               ref={textareaRef}
               value={input}
@@ -346,11 +381,15 @@ export default function ChatPage({
               placeholder={`Message ${agent.name}...`}
               rows={1}
               disabled={isStreaming}
-              className="w-full bg-transparent px-4 py-2.5 text-[15px] resize-none focus:outline-none disabled:opacity-50"
+              className="w-full px-4 py-2.5 text-[15px] resize-none focus:outline-none disabled:opacity-50"
               style={{
-                minHeight: "40px",
-                maxHeight: "120px",
-                color: 'var(--text-primary)',
+                minHeight: 40,
+                maxHeight: 120,
+                borderRadius: 22,
+                background: "var(--fill-tertiary)",
+                border: "none",
+                color: "var(--text-primary)",
+                transition: "box-shadow 200ms var(--ease-smooth)",
               }}
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -359,45 +398,51 @@ export default function ChatPage({
                   Math.min(target.scrollHeight, 120) + "px";
               }}
               onFocus={(e) => {
-                const parent = e.target.parentElement;
-                if (parent) {
-                  parent.style.borderColor = "var(--accent-ring)";
-                }
+                e.target.style.boxShadow =
+                  "0 0 0 4px rgba(10,132,255,0.25)";
               }}
               onBlur={(e) => {
-                const parent = e.target.parentElement;
-                if (parent) {
-                  parent.style.borderColor = "var(--border)";
-                }
+                e.target.style.boxShadow = "none";
               }}
             />
           </div>
 
-          {/* Send button — gold circle, only visible when there is input */}
+          {/* Send button -- appears when input non-empty */}
           <div
-            className="flex-shrink-0 mb-0.5 transition-all duration-200"
+            className="flex-shrink-0 mb-0.5"
             style={{
               opacity: hasInput ? 1 : 0,
               transform: hasInput ? "scale(1)" : "scale(0.6)",
               pointerEvents: hasInput ? "auto" : "none",
+              transition: "all 0.35s var(--ease-spring)",
             }}
           >
             <button
               onClick={sendMessage}
               disabled={isStreaming || !hasInput}
-              className="w-[36px] h-[36px] rounded-full flex items-center justify-center text-black font-bold text-[18px] transition-all duration-150 active:scale-90 disabled:opacity-50"
+              className="flex items-center justify-center font-bold text-[18px] active:scale-90 disabled:opacity-50"
               style={{
-                background: "linear-gradient(135deg, var(--accent), #d4a800)",
+                width: 36,
+                height: 36,
+                borderRadius: "50%",
+                background: "var(--accent)",
+                color: "#000",
+                border: "none",
+                cursor: "pointer",
+                transition: "transform 150ms var(--ease-spring)",
               }}
               title="Send message"
             >
-              &uarr;
+              &#8593;
             </button>
           </div>
         </div>
 
         {/* Helper text */}
-        <p className="text-[11px] text-center mt-2 mb-0.5" style={{ color: 'var(--text-tertiary)' }}>
+        <p
+          className="text-[11px] text-center mt-2 mb-0.5"
+          style={{ color: "var(--text-tertiary)" }}
+        >
           &#8629; Send &middot; &#8679;&#8629; New line
         </p>
       </div>

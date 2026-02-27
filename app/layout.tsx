@@ -15,31 +15,53 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+            {/* Apple Source List Sidebar */}
             <aside
               className="w-[220px] flex-shrink-0 flex flex-col"
-              style={{ background: 'var(--sidebar-bg)', boxShadow: "2px 0 12px rgba(0,0,0,0.3)" }}
+              style={{
+                background: 'var(--sidebar-bg)',
+                backdropFilter: 'var(--sidebar-backdrop)',
+                WebkitBackdropFilter: 'var(--sidebar-backdrop)',
+                borderRight: '1px solid var(--separator)',
+              }}
             >
-              <div className="p-5">
+              {/* App icon + title */}
+              <div className="px-4 pt-5 pb-3">
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#f5c518] to-[#e8b800] flex items-center justify-center text-lg"
-                    style={{ boxShadow: "0 2px 8px rgba(245,197,24,0.3)" }}
+                    className="w-9 h-9 flex items-center justify-center text-lg"
+                    style={{
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #f5c518, #e8b800)',
+                      boxShadow: 'var(--shadow-card)',
+                    }}
                   >
                     🏰
                   </div>
                   <div>
-                    <div className="font-semibold text-[17px] tracking-[-0.3px]" style={{ color: 'var(--text-primary)' }}>
+                    <div style={{
+                      fontSize: '17px',
+                      fontWeight: 600,
+                      letterSpacing: '-0.3px',
+                      color: 'var(--text-primary)',
+                    }}>
                       Manor
                     </div>
-                    <div className="text-[12px] tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+                    <div style={{
+                      fontSize: '12px',
+                      color: 'var(--text-secondary)',
+                      letterSpacing: '0.01em',
+                    }}>
                       Command Centre
                     </div>
                   </div>
                 </div>
               </div>
+
               <NavLinks />
               <ThemeToggle />
             </aside>
+
             <main className="flex-1 overflow-hidden relative">
               {/* Glass background orbs — only visible in glass theme */}
               <div className="pointer-events-none fixed inset-0 overflow-hidden glass-orbs" aria-hidden>

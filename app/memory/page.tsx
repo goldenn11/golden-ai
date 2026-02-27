@@ -24,19 +24,19 @@ function simpleMarkdown(text: string): string {
     .replace(/>/g, "&gt;")
     .replace(
       /^#### (.+)$/gm,
-      '<h4 class="text-[14px] font-semibold" style="color:var(--text-primary);margin-top:1rem;margin-bottom:0.25rem">$1</h4>'
+      '<h4 class="text-[15px] font-semibold" style="color:var(--text-primary);margin-top:1rem;margin-bottom:0.25rem">$1</h4>'
     )
     .replace(
       /^### (.+)$/gm,
-      '<h3 class="text-[15px] font-semibold" style="color:var(--text-primary);margin-top:1.25rem;margin-bottom:0.375rem">$1</h3>'
+      '<h3 class="text-[17px] font-semibold" style="color:var(--text-primary);margin-top:1.25rem;margin-bottom:0.375rem">$1</h3>'
     )
     .replace(
       /^## (.+)$/gm,
-      '<h2 class="text-[17px] font-bold" style="color:var(--text-primary);margin-top:1.5rem;margin-bottom:0.5rem;padding-bottom:0.25rem;border-bottom:1px solid var(--border)">$1</h2>'
+      '<h2 class="text-[22px] font-semibold" style="color:var(--text-primary);margin-top:1.5rem;margin-bottom:0.5rem;padding-bottom:0.25rem;border-bottom:1px solid var(--separator)">$1</h2>'
     )
     .replace(
       /^# (.+)$/gm,
-      '<h1 class="text-[20px] font-bold" style="color:var(--text-primary);margin-top:1rem;margin-bottom:0.75rem">$1</h1>'
+      '<h1 class="text-[28px] font-bold" style="color:var(--text-primary);margin-top:1rem;margin-bottom:0.75rem">$1</h1>'
     )
     .replace(
       /\*\*(.+?)\*\*/g,
@@ -44,15 +44,15 @@ function simpleMarkdown(text: string): string {
     )
     .replace(
       /`([^`]+)`/g,
-      '<code style="background:var(--bg-grouped);color:var(--accent);padding:2px 6px;border-radius:6px;font-size:12px;font-family:var(--font-mono)">$1</code>'
+      '<code style="background:var(--fill-secondary);color:var(--accent);padding:2px 6px;border-radius:6px;font-size:13px;font-family:var(--font-mono)">$1</code>'
     )
     .replace(
       /^- (.+)$/gm,
-      '<li class="ml-4 text-[14px] leading-[1.7] list-disc" style="color:var(--text-secondary)">$1</li>'
+      '<li class="ml-4 text-[15px] leading-[1.7] list-disc" style="color:var(--text-secondary)">$1</li>'
     )
     .replace(
       /^(\d+)\. (.+)$/gm,
-      '<li class="ml-4 text-[14px] leading-[1.7] list-decimal" style="color:var(--text-secondary)">$2</li>'
+      '<li class="ml-4 text-[15px] leading-[1.7] list-decimal" style="color:var(--text-secondary)">$2</li>'
     )
     .replace(
       /\n{2,}/g,
@@ -72,15 +72,15 @@ function colorizeJson(json: string): string {
     )
     .replace(
       /:\s*"([^"]*?)"/g,
-      ': <span style="color:var(--green)">"$1"</span>'
+      ': <span style="color:var(--system-green)">"$1"</span>'
     )
     .replace(
       /:\s*(\d+\.?\d*)/g,
-      ': <span style="color:var(--blue)">$1</span>'
+      ': <span style="color:var(--system-blue)">$1</span>'
     )
     .replace(
       /:\s*(true|false)/g,
-      ': <span style="color:var(--purple)">$1</span>'
+      ': <span style="color:#bf5af2">$1</span>'
     )
     .replace(
       /:\s*(null)/g,
@@ -117,10 +117,21 @@ export default function MemoryPage() {
         const pretty = JSON.stringify(JSON.parse(selected.content), null, 2);
         const lines = pretty.split("\n");
         renderedContent = (
-          <div className="rounded-xl p-5 glass-card" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)' }}>
+          <div
+            style={{
+              background: "var(--fill-secondary)",
+              borderRadius: "var(--radius-md)",
+              padding: 16,
+            }}
+          >
             <div className="flex">
               {/* Line numbers */}
-              <div className="flex-shrink-0 pr-4 mr-4 select-none" style={{ borderRight: '1px solid var(--border-light)' }}>
+              <div
+                className="flex-shrink-0 pr-4 mr-4 select-none"
+                style={{
+                  borderRight: "1px solid var(--separator)",
+                }}
+              >
                 {lines.map((_, i) => (
                   <div
                     key={i}
@@ -134,15 +145,27 @@ export default function MemoryPage() {
               {/* Syntax highlighted content */}
               <pre
                 className="font-mono text-[13px] whitespace-pre-wrap leading-relaxed flex-1"
-                dangerouslySetInnerHTML={{ __html: colorizeJson(pretty) }}
+                style={{ color: "var(--text-secondary)" }}
+                dangerouslySetInnerHTML={{
+                  __html: colorizeJson(pretty),
+                }}
               />
             </div>
           </div>
         );
       } catch {
         renderedContent = (
-          <div className="rounded-xl p-5" style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-light)' }}>
-            <pre className="font-mono text-[13px] whitespace-pre-wrap" style={{ color: 'var(--red)' }}>
+          <div
+            style={{
+              background: "var(--fill-secondary)",
+              borderRadius: "var(--radius-md)",
+              padding: 16,
+            }}
+          >
+            <pre
+              className="font-mono text-[13px] whitespace-pre-wrap"
+              style={{ color: "var(--system-red)" }}
+            >
               {selected.content}
             </pre>
           </div>
@@ -151,7 +174,7 @@ export default function MemoryPage() {
     } else {
       renderedContent = (
         <div
-          className="text-[14px] leading-[1.7]"
+          className="text-[15px] leading-[1.7]"
           style={{ color: "var(--text-secondary)" }}
           dangerouslySetInnerHTML={{
             __html: `<p class="mb-3" style="color:var(--text-secondary)">${simpleMarkdown(selected.content)}</p>`,
@@ -162,23 +185,38 @@ export default function MemoryPage() {
   }
 
   const lineCount = selected ? selected.content.split("\n").length : 0;
-  const charCount = selected ? selected.content.length : 0;
   const words = selected ? wordCount(selected.content) : 0;
 
   return (
-    <div className="flex h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex h-full" style={{ background: "var(--bg)" }}>
       {/* Sidebar */}
-      <div className="w-[240px] flex-shrink-0 flex flex-col" style={{ background: 'var(--bg-elevated)' }}>
+      <div
+        className="w-[240px] flex-shrink-0 flex flex-col"
+        style={{
+          background: "var(--material-regular)",
+          backdropFilter: "var(--sidebar-backdrop)",
+          WebkitBackdropFilter: "var(--sidebar-backdrop)",
+          borderRight: "1px solid var(--separator)",
+        }}
+      >
         {/* Sidebar header */}
         <div
-          className="p-4 flex items-center justify-between flex-shrink-0"
-          style={{ boxShadow: `0 1px 0 var(--border)` }}
+          className="flex items-center justify-between flex-shrink-0"
+          style={{
+            padding: "12px 16px",
+            borderBottom: "1px solid var(--separator)",
+          }}
         >
-          <span className="text-[17px] font-semibold" style={{ color: 'var(--text-primary)' }}>Memory</span>
+          <span
+            className="text-[17px] font-semibold"
+            style={{ color: "var(--text-primary)" }}
+          >
+            Memory
+          </span>
           <button
             onClick={refresh}
-            className="hover:opacity-80 transition-colors text-[16px]"
-            style={{ color: 'var(--text-tertiary)' }}
+            className="hover:opacity-80 transition-opacity text-[16px]"
+            style={{ color: "var(--text-tertiary)" }}
           >
             &#8635;
           </button>
@@ -189,29 +227,48 @@ export default function MemoryPage() {
           {loading ? (
             <div
               className="p-4 text-[14px] animate-pulse"
-              style={{ color: 'var(--text-secondary)' }}
+              style={{ color: "var(--text-secondary)" }}
             >
               Loading...
             </div>
           ) : (
-            files.map((file, idx) => {
+            files.map((file) => {
               const isActive = selected?.path === file.path;
-              const isLast = idx === files.length - 1;
               return (
                 <button
                   key={file.path}
                   onClick={() => setSelected(file)}
-                  className="w-full text-left px-4 py-3 transition-colors"
+                  className="w-full text-left transition-colors"
                   style={{
-                    borderBottom: !isLast ? '1px solid var(--border-light)' : undefined,
-                    background: isActive ? 'var(--accent-dim)' : undefined,
-                    borderLeft: isActive ? '3px solid var(--accent)' : '3px solid transparent',
+                    height: 52,
+                    padding: "12px 16px",
+                    background: isActive
+                      ? "var(--fill-secondary)"
+                      : undefined,
+                    borderLeft: isActive
+                      ? "3px solid var(--accent)"
+                      : "3px solid transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive)
+                      e.currentTarget.style.background =
+                        "var(--material-ultra-thin)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive)
+                      e.currentTarget.style.background = "";
                   }}
                 >
-                  <div className="text-[14px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                  <div
+                    className="text-[14px] font-medium truncate"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     {file.label}
                   </div>
-                  <div className="text-[12px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  <div
+                    className="text-[11px] mt-0.5"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
                     {timeAgo(file.lastModified)}
                   </div>
                 </button>
@@ -222,52 +279,51 @@ export default function MemoryPage() {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden" style={{ background: 'var(--bg)' }}>
+      <div
+        className="flex-1 flex flex-col overflow-hidden"
+        style={{ background: "var(--bg)" }}
+      >
         {selected ? (
           <>
-            {/* Content header */}
+            {/* Content area */}
             <div
-              className="px-8 py-4 flex items-center justify-between flex-shrink-0"
-              style={{ boxShadow: `0 1px 0 var(--border)` }}
+              className="flex-1 overflow-y-auto"
+              style={{ padding: "32px 40px" }}
             >
-              <div>
-                <div className="text-[17px] font-bold" style={{ color: 'var(--text-primary)' }}>
-                  {selected.label}
-                </div>
-                <div
-                  className="text-[12px] font-mono mt-0.5"
-                  style={{ color: "var(--text-secondary)" }}
+              <div style={{ maxWidth: 760, margin: "0 auto" }}>
+                {/* File title */}
+                <h1
+                  className="text-[28px] font-bold"
+                  style={{
+                    color: "var(--text-primary)",
+                    letterSpacing: "-0.5px",
+                  }}
                 >
-                  {selected.path}
-                </div>
+                  {selected.label}
+                </h1>
+
+                {/* Meta */}
                 <div
-                  className="text-[12px] mt-0.5"
+                  className="text-[12px] mt-1 mb-6"
                   style={{ color: "var(--text-tertiary)" }}
                 >
                   {isJSON ? (
                     <>
-                      {lineCount} lines &middot;{" "}
-                      {charCount.toLocaleString()} characters
+                      {lineCount} lines &middot; Modified{" "}
+                      {timeAgo(selected.lastModified)}
                     </>
                   ) : (
                     <>
-                      {words.toLocaleString()} words &middot; {lineCount} lines
-                      &middot; {charCount.toLocaleString()} chars
+                      {words.toLocaleString()} words &middot;{" "}
+                      {lineCount} lines &middot; Modified{" "}
+                      {timeAgo(selected.lastModified)}
                     </>
                   )}
                 </div>
-              </div>
-              <div
-                className="text-[12px]"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Modified {timeAgo(selected.lastModified)}
-              </div>
-            </div>
 
-            {/* Content body */}
-            <div className="flex-1 overflow-y-auto px-8 py-6">
-              <div className="max-w-[720px] mx-auto">{renderedContent}</div>
+                {/* Content */}
+                {renderedContent}
+              </div>
             </div>
           </>
         ) : (

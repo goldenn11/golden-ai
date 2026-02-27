@@ -1,12 +1,10 @@
 "use client";
 import {
   ReactFlow,
-  Background,
   Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
-  BackgroundVariant,
   type Node,
   type Edge,
 } from "@xyflow/react";
@@ -22,15 +20,12 @@ interface ManorMapProps {
 
 function buildLayout(agents: Agent[], crons: CronJob[]): { nodes: Node[]; edges: Edge[] } {
   const agentMap = new Map(agents.map((a) => [a.id, a]));
-
-  // Attach crons to agents
   const withCrons = agents.map((a) => ({
     ...a,
     crons: crons.filter((c) => c.agentId === a.id),
   }));
   const agentMapWithCrons = new Map(withCrons.map((a) => [a.id, a]));
 
-  // BFS to compute levels
   const levels: string[][] = [];
   const visited = new Set<string>();
   const root = agents.find((a) => a.reportsTo === null);
@@ -51,11 +46,9 @@ function buildLayout(agents: Agent[], crons: CronJob[]): { nodes: Node[]; edges:
     queue = nextQueue;
   }
 
-  // Add any disconnected agents (those not reachable from root)
   const disconnected = agents.filter((a) => !visited.has(a.id));
   if (disconnected.length > 0) levels.push(disconnected.map((a) => a.id));
 
-  // Position nodes
   const LEVEL_HEIGHT = 200;
   const nodes: Node[] = [];
 
@@ -77,7 +70,6 @@ function buildLayout(agents: Agent[], crons: CronJob[]): { nodes: Node[]; edges:
     });
   }
 
-  // Build edges
   const edges: Edge[] = [];
   for (const agent of agents) {
     const parentAgent = agentMap.get(agent.id);
@@ -88,7 +80,7 @@ function buildLayout(agents: Agent[], crons: CronJob[]): { nodes: Node[]; edges:
         source: agent.id,
         target: childId,
         animated: true,
-        style: { stroke: agent.color, strokeWidth: 2, opacity: 0.85 },
+        style: { stroke: 'var(--accent)', strokeWidth: 1.5, opacity: 0.7 },
       });
     }
   }
@@ -125,12 +117,6 @@ export function ManorMap({ agents, crons, onNodeClick }: ManorMapProps) {
       maxZoom={2}
       proOptions={{ hideAttribution: true }}
     >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={24}
-        size={1}
-        color="rgba(84,84,88,0.3)"
-      />
       <Controls />
       <MiniMap
         nodeColor={(n) => (n.data as unknown as Agent).color || "rgba(84,84,88,0.4)"}

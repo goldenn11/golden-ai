@@ -5,28 +5,45 @@ import { useTheme } from '@/app/providers';
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   return (
-    <div className="px-3 py-2">
-      <p className="text-[10px] font-semibold tracking-[0.08em] mb-2 px-1" style={{ color: 'var(--text-tertiary)' }}>THEME</p>
-      <div className="flex gap-1.5 flex-wrap">
-        {THEMES.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTheme(t.id)}
-            title={t.label}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-all duration-150 ${
-              theme === t.id
-                ? 'bg-[rgba(245,197,24,0.2)] text-[#f5c518] ring-1 ring-[rgba(245,197,24,0.4)]'
-                : 'hover:text-white'
-            }`}
-            style={theme !== t.id ? {
-              background: 'var(--bg-fill-2)',
-              color: 'var(--text-secondary)',
-            } : undefined}
-          >
-            <span>{t.emoji}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
+    <div style={{ padding: '8px 16px 12px' }}>
+      <div style={{
+        fontSize: '11px',
+        fontWeight: 600,
+        letterSpacing: '0.06em',
+        color: 'var(--text-tertiary)',
+        textTransform: 'uppercase' as const,
+        marginBottom: '6px',
+        paddingLeft: '4px',
+      }}>
+        THEME
+      </div>
+      <div className="flex gap-1.5">
+        {THEMES.map(t => {
+          const isActive = theme === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id)}
+              title={t.label}
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '13px',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 150ms var(--ease-spring)',
+                background: isActive ? 'var(--accent-fill)' : 'var(--fill-quaternary)',
+                boxShadow: isActive ? '0 0 0 1.5px var(--accent)' : 'none',
+              }}
+            >
+              {t.emoji}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

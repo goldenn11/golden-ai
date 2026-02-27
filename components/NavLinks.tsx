@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTheme } from "@/app/providers";
 
 const NAV_ITEMS = [
   { href: "/", icon: "🗺️", label: "Manor Map" },
@@ -11,6 +12,7 @@ const NAV_ITEMS = [
 
 export function NavLinks() {
   const pathname = usePathname();
+  const { theme } = useTheme();
   const [agentCount, setAgentCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -20,13 +22,45 @@ export function NavLinks() {
       .catch(() => {});
   }, []);
 
+  function getActiveStyle() {
+    if (theme === "light") {
+      return {
+        background: 'rgba(0,122,255,0.10)',
+        color: '#007AFF',
+        boxShadow: 'inset 2px 0 0 #007AFF',
+      };
+    }
+    if (theme === "color") {
+      return {
+        background: 'rgba(139,92,246,0.18)',
+        color: '#C084FC',
+        boxShadow: 'inset 2px 0 0 #C084FC',
+      };
+    }
+    return {
+      background: 'rgba(255,255,255,0.12)',
+      color: '#FFFFFF',
+      boxShadow: 'inset 2px 0 0 var(--accent)',
+    };
+  }
+
   return (
     <nav className="flex-1 flex flex-col">
-      <div className="px-2 py-3">
-        <div className="px-3 mb-1 text-[10px] font-semibold tracking-[0.08em]" style={{ color: 'var(--text-tertiary)' }}>
+      <div className="px-3 pt-2 pb-3">
+        {/* Section header */}
+        <div style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          color: 'var(--text-tertiary)',
+          textTransform: 'uppercase' as const,
+          padding: '0 8px',
+          marginBottom: '4px',
+        }}>
           WORKSPACE
         </div>
-        <div className="space-y-0.5">
+
+        <div className="flex flex-col gap-0.5">
           {NAV_ITEMS.map((item) => {
             const isActive =
               item.href === "/"
@@ -37,25 +71,52 @@ export function NavLinks() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-[7px] rounded-lg transition-all duration-150 ${
-                  isActive
-                    ? "font-semibold"
-                    : "hover:text-white"
-                }`}
-                style={isActive
-                  ? { background: 'var(--accent-dim)', color: 'var(--accent)' }
-                  : { color: 'var(--text-secondary)' }
-                }
+                className="flex items-center gap-2.5 no-underline"
+                style={{
+                  height: '34px',
+                  padding: '0 8px 0 12px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: isActive ? 600 : 500,
+                  color: isActive ? getActiveStyle().color : 'var(--text-secondary)',
+                  background: isActive ? getActiveStyle().background : 'transparent',
+                  boxShadow: isActive ? getActiveStyle().boxShadow : 'none',
+                  transition: 'all 100ms var(--ease-spring)',
+                  textDecoration: 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'var(--material-ultra-thin)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent';
+                  }
+                }}
               >
-                <span className="w-[18px] h-[18px] flex items-center justify-center text-sm flex-shrink-0">
+                <span style={{
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px',
+                  flexShrink: 0,
+                }}>
                   {item.icon}
                 </span>
-                <span className="text-[13px] font-medium">{item.label}</span>
+                <span>{item.label}</span>
                 {item.href === "/" && agentCount !== null && (
-                  <span
-                    className="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded"
-                    style={{ color: 'var(--text-secondary)', background: 'var(--bg-grouped)' }}
-                  >
+                  <span style={{
+                    marginLeft: 'auto',
+                    fontSize: '10px',
+                    fontFamily: 'var(--font-mono)',
+                    padding: '1px 6px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--fill-quaternary)',
+                    color: 'var(--text-tertiary)',
+                  }}>
                     {agentCount}
                   </span>
                 )}
@@ -64,18 +125,47 @@ export function NavLinks() {
           })}
         </div>
       </div>
+
       <div className="flex-1" />
-      <div className="p-4" style={{ borderTop: '1px solid var(--border)' }}>
-        <div className="flex items-center gap-3 px-3 py-2">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-medium flex-shrink-0"
-            style={{ background: 'var(--bg-grouped)', color: 'var(--text-secondary)' }}
-          >
+
+      {/* User footer */}
+      <div style={{
+        borderTop: '1px solid var(--separator)',
+        padding: '10px 16px',
+      }}>
+        <div className="flex items-center gap-2.5">
+          <div style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '7px',
+            background: 'var(--fill-primary)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '12px',
+            fontWeight: 600,
+            color: 'var(--text-secondary)',
+            flexShrink: 0,
+          }}>
             JR
           </div>
-          <div className="min-w-0">
-            <div className="text-[13px] font-medium truncate" style={{ color: 'var(--text-primary)' }}>John Rice</div>
-            <div className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>Owner</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--text-primary)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              John Rice
+            </div>
+            <div style={{
+              fontSize: '11px',
+              color: 'var(--text-tertiary)',
+            }}>
+              Owner
+            </div>
           </div>
         </div>
       </div>
