@@ -186,8 +186,7 @@ export default function ManorPage() {
           style={{
             position: "absolute",
             top: "var(--space-4)",
-            right: selected ? 376 : "var(--space-4)",
-            transition: "right 300ms var(--ease-snappy)",
+            right: "var(--space-4)",
             zIndex: 10,
             display: "flex",
             alignItems: "center",
@@ -251,13 +250,9 @@ export default function ManorPage() {
       )}
 
       {/* ── Detail panel ── */}
-      {selected ? (
+      {selected && (
         <div
-          className="fixed inset-0 z-40 md:relative md:z-auto panel-slide-in"
-          style={{
-            width: "100%",
-            maxWidth: "100%",
-          }}
+          className="fixed inset-0 z-40 md:absolute md:inset-y-0 md:right-0 md:left-auto md:z-30 panel-slide-in"
         >
           <div
             className="h-full flex flex-col ml-auto"
@@ -269,7 +264,7 @@ export default function ManorPage() {
               background: "var(--material-regular)",
               backdropFilter: "var(--sidebar-backdrop)",
               WebkitBackdropFilter: "var(--sidebar-backdrop)",
-              boxShadow: "var(--shadow-overlay)",
+              boxShadow: "-4px 0 24px rgba(0,0,0,0.25)",
             }}
           >
             {/* Color strip */}
@@ -579,55 +574,6 @@ export default function ManorPage() {
               >
                 View Profile
               </Link>
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Empty state -- hidden on mobile */
-        <div
-          className="hidden md:flex"
-          style={{
-            width: 360,
-            flexShrink: 0,
-            alignItems: "center",
-            justifyContent: "center",
-            background: "var(--material-regular)",
-            backdropFilter: "var(--sidebar-backdrop)",
-            WebkitBackdropFilter: "var(--sidebar-backdrop)",
-            boxShadow: "var(--shadow-overlay)",
-          }}
-        >
-          <div style={{ textAlign: "center", padding: "0 var(--space-6)" }}>
-            <div style={{ fontSize: 48, marginBottom: "var(--space-3)" }}>
-              {"\uD83D\uDDFA\uFE0F"}
-            </div>
-            <div
-              style={{
-                fontSize: "var(--text-title2)",
-                fontWeight: "var(--weight-semibold)",
-                color: "var(--text-primary)",
-              }}
-            >
-              Select an agent
-            </div>
-            <div
-              style={{
-                fontSize: "var(--text-footnote)",
-                color: "var(--text-secondary)",
-                marginTop: "var(--space-1)",
-                lineHeight: 1.5,
-              }}
-            >
-              Click any node on the map to inspect
-            </div>
-            <div
-              style={{
-                fontSize: "var(--text-caption2)",
-                color: "var(--text-tertiary)",
-                marginTop: "var(--space-3)",
-              }}
-            >
-              Tip: Press ESC to close the panel
             </div>
           </div>
         </div>

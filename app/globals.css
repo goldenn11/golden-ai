@@ -417,6 +417,21 @@ body {
 .animate-scale-up { animation: scaleUp 200ms var(--ease-spring) forwards; }
 .animate-fade-out { animation: fadeOut 150ms ease forwards; }
 
+/* Panel slide-in from right edge */
+@keyframes panelSlideIn {
+  from { transform: translateX(100%); opacity: 0.8; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.panel-slide-in {
+  animation: panelSlideIn 350ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* Backdrop fade (reuses fadeIn timing) */
+.backdrop-fade {
+  animation: fadeIn 200ms ease-out both;
+}
+
 /* ============================================
    Interactive State Classes
    ============================================ */

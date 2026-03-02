@@ -40,6 +40,7 @@ export async function POST(
       status: string
       priority: string
       assigneeRole: string | null
+      workResult: string | null
     }
   }
 
@@ -51,12 +52,16 @@ export async function POST(
   }
 
   // Build system prompt with ticket context
+  const workContext = ticket?.workResult
+    ? `\n\nYou already completed work on this ticket. Here is what you produced:\n${ticket.workResult}\n\nReference this work when answering follow-up questions. Build on it, don't repeat it unless asked.`
+    : ''
+
   const ticketContext = ticket
     ? `You are working on ticket: "${ticket.title}".
 Description: ${ticket.description || 'No description provided.'}
 Status: ${ticket.status}
 Priority: ${ticket.priority}
-Your role: ${ticket.assigneeRole || 'unassigned'}
+Your role: ${ticket.assigneeRole || 'unassigned'}${workContext}
 
 Help the user with this ticket. Stay in character as ${agent.name}, ${agent.title}. Be concise — 2-4 sentences unless detail is asked for. No em dashes.`
     : `You are ${agent.name}, ${agent.title}. Respond in character. Be concise. No em dashes.`
