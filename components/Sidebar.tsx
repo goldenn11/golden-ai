@@ -81,7 +81,9 @@ export function Sidebar() {
                   color: 'var(--text-primary)',
                 }}
               >
-                {settings.portalName ?? 'ClawPort'}
+                {(!settings.portalName || settings.portalName === 'ClawPort')
+                  ? <>Claw<span style={{ color: 'var(--accent)' }}>Port</span></>
+                  : settings.portalName}
               </div>
               <div
                 style={{

@@ -18,6 +18,7 @@ vi.mock('fs', () => ({
 }))
 
 import { parseCronRunLine, parseConfigAuditLine, getLogEntries, computeLogSummary } from './logs'
+import { parseSSELine, parseSSEBuffer } from './sse'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -260,5 +261,121 @@ describe('computeLogSummary', () => {
     }))
     const summary = computeLogSummary(entries)
     expect(summary.recentErrors).toHaveLength(5)
+  })
+})
+
+/* ── parseSSELine ──────────────────────────────────────────────── */
+
+describe('parseSSELine', () => {
+  it('parses valid JSON log line', () => {
+    const line = parseSSELine('{"time":"2026-03-06T10:00:00Z","level":"info","message":"Hello world"}')
+    expect(line.time).toBe('2026-03-06T10:00:00Z')
+    expect(line.level).toBe('info')
+    expect(line.message).toBe('Hello world')
+    expect(line.type).toBe('log')
+  })
+
+  it('falls back to ts field when time is absent', () => {
+    const line = parseSSELine('{"ts":"2026-03-06T10:00:00Z","message":"test"}')
+    expect(line.time).toBe('2026-03-06T10:00:00Z')
+  })
+
+  it('falls back to msg field when message is absent', () => {
+    const line = parseSSELine('{"time":"t","msg":"from msg field"}')
+    expect(line.message).toBe('from msg field')
+  })
+
+  it('stringifies entire object when no message or msg', () => {
+    const line = parseSSELine('{"time":"t","level":"warn","data":123}')
+    expect(line.message).toContain('"data":123')
+    expect(line.level).toBe('warn')
+  })
+
+  it('defaults level to info', () => {
+    const line = parseSSELine('{"message":"no level"}')
+    expect(line.level).toBe('info')
+  })
+
+  it('handles plain text (non-JSON)', () => {
+    const line = parseSSELine('just a plain string')
+    expect(line.message).toBe('just a plain string')
+    expect(line.level).toBe('info')
+    expect(line.type).toBe('log')
+  })
+
+  it('preserves type field', () => {
+    const line = parseSSELine('{"type":"meta","message":"metadata"}')
+    expect(line.type).toBe('meta')
+  })
+})
+
+/* ── parseSSEBuffer ────────────────────────────────────────────── */
+
+describe('parseSSEBuffer', () => {
+  it('parses normal data events into lines', () => {
+    const buffer = 'data: {"message":"hello","level":"info"}\n\ndata: {"message":"world","level":"warn"}\n\n'
+    const result = parseSSEBuffer(buffer)
+    expect(result.lines).toHaveLength(2)
+    expect(result.lines[0].message).toBe('hello')
+    expect(result.lines[1].message).toBe('world')
+    expect(result.errors).toHaveLength(0)
+    expect(result.remainder).toBe('')
+  })
+
+  it('parses error events into errors (not lines)', () => {
+    const buffer = 'event: error\ndata: {"error":"something broke"}\n\n'
+    const result = parseSSEBuffer(buffer)
+    expect(result.lines).toHaveLength(0)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]).toBe('something broke')
+  })
+
+  it('separates normal lines from error events in same buffer', () => {
+    const buffer =
+      'data: {"message":"ok line"}\n\n' +
+      'event: error\ndata: {"error":"bad thing"}\n\n' +
+      'data: {"message":"another ok"}\n\n'
+    const result = parseSSEBuffer(buffer)
+    expect(result.lines).toHaveLength(2)
+    expect(result.lines[0].message).toBe('ok line')
+    expect(result.lines[1].message).toBe('another ok')
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]).toBe('bad thing')
+  })
+
+  it('returns incomplete trailing chunk as remainder', () => {
+    const buffer = 'data: {"message":"complete"}\n\ndata: {"message":"incomp'
+    const result = parseSSEBuffer(buffer)
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0].message).toBe('complete')
+    expect(result.remainder).toBe('data: {"message":"incomp')
+  })
+
+  it('handles heartbeat comments (ignored)', () => {
+    const buffer = ': heartbeat\n\ndata: {"message":"real data"}\n\n'
+    const result = parseSSEBuffer(buffer)
+    expect(result.lines).toHaveLength(1)
+    expect(result.lines[0].message).toBe('real data')
+    expect(result.errors).toHaveLength(0)
+  })
+
+  it('handles plain text error payloads', () => {
+    const buffer = 'event: error\ndata: spawn ENOENT\n\n'
+    const result = parseSSEBuffer(buffer)
+    expect(result.errors).toHaveLength(1)
+    expect(result.errors[0]).toBe('spawn ENOENT')
+  })
+
+  it('handles empty buffer', () => {
+    const result = parseSSEBuffer('')
+    expect(result.lines).toHaveLength(0)
+    expect(result.errors).toHaveLength(0)
+    expect(result.remainder).toBe('')
+  })
+
+  it('handles buffer with only incomplete data', () => {
+    const result = parseSSEBuffer('data: {"message":"no terminator"}')
+    expect(result.lines).toHaveLength(0)
+    expect(result.remainder).toBe('data: {"message":"no terminator"}')
   })
 })

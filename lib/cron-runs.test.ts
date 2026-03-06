@@ -115,4 +115,34 @@ describe('getCronRuns', () => {
     const runs = getCronRuns('nonexistent')
     expect(runs).toEqual([])
   })
+
+  it('parses model, provider, and usage fields', () => {
+    const line = JSON.stringify({
+      ts: 5000, jobId: 'x', action: 'finished', status: 'ok', durationMs: 100,
+      model: 'claude-sonnet-4-6', provider: 'anthropic',
+      usage: { input_tokens: 1000, output_tokens: 200, total_tokens: 1200 },
+    })
+    mockReaddirSync.mockReturnValue(['x.jsonl'])
+    mockReadFileSync.mockReturnValue(line)
+
+    const runs = getCronRuns()
+    expect(runs).toHaveLength(1)
+    expect(runs[0].model).toBe('claude-sonnet-4-6')
+    expect(runs[0].provider).toBe('anthropic')
+    expect(runs[0].usage).toEqual({ input_tokens: 1000, output_tokens: 200, total_tokens: 1200 })
+  })
+
+  it('returns null for model/provider/usage when missing', () => {
+    const line = JSON.stringify({
+      ts: 6000, jobId: 'y', action: 'finished', status: 'ok', durationMs: 50,
+    })
+    mockReaddirSync.mockReturnValue(['y.jsonl'])
+    mockReadFileSync.mockReturnValue(line)
+
+    const runs = getCronRuns()
+    expect(runs).toHaveLength(1)
+    expect(runs[0].model).toBeNull()
+    expect(runs[0].provider).toBeNull()
+    expect(runs[0].usage).toBeNull()
+  })
 })

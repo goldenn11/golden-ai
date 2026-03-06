@@ -170,3 +170,4 @@ export function computeLogSummary(entries: LogEntry[]): LogSummary {
     recentErrors: errorEntries.slice(0, 5),
   }
 }
+

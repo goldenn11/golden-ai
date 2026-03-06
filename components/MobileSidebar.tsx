@@ -135,7 +135,10 @@ export function MobileSidebar({
               letterSpacing: '-0.2px',
             }}
           >
-            {settings.portalName ?? 'ClawPort'} {settings.portalSubtitle ?? 'Command Centre'}
+            {(!settings.portalName || settings.portalName === 'ClawPort')
+              ? <>Claw<span style={{ color: 'var(--accent)' }}>Port</span></>
+              : settings.portalName}
+            {' '}{settings.portalSubtitle ?? 'Command Centre'}
           </span>
         </div>
       </header>
@@ -223,7 +226,9 @@ export function MobileSidebar({
                   color: 'var(--text-primary)',
                 }}
               >
-                {settings.portalName ?? 'ClawPort'}
+                {(!settings.portalName || settings.portalName === 'ClawPort')
+                  ? <>Claw<span style={{ color: 'var(--accent)' }}>Port</span></>
+                  : settings.portalName}
               </div>
               <div
                 style={{

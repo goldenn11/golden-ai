@@ -105,9 +105,9 @@ export function AgentNode({ data, selected }: NodeProps) {
           <span
             style={{
               fontSize: "var(--text-caption2)",
-              fontWeight: "var(--weight-medium)",
-              color: "var(--text-quaternary)",
-              background: "var(--fill-quaternary)",
+              fontWeight: "var(--weight-semibold)",
+              color: "var(--accent)",
+              background: "var(--accent-fill)",
               padding: "1px 7px",
               borderRadius: 10,
             }}
@@ -119,9 +119,9 @@ export function AgentNode({ data, selected }: NodeProps) {
           <span
             style={{
               fontSize: "var(--text-caption2)",
-              fontWeight: "var(--weight-medium)",
-              color: "var(--text-quaternary)",
-              background: "var(--fill-quaternary)",
+              fontWeight: "var(--weight-semibold)",
+              color: "var(--text-secondary)",
+              background: "var(--fill-secondary)",
               padding: "1px 7px",
               borderRadius: 10,
             }}
