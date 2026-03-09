@@ -10,8 +10,11 @@ import {
   computeCostSummary,
   computeWeekOverWeek,
   computeCacheSavings,
+  computeOptimizationInsights,
+  computeOptimizationScore,
+  buildCostAnalysisPrompt,
 } from './costs'
-import type { CronRun } from './types'
+import type { CronRun, CacheSavings, RunCost, JobCostSummary, TokenAnomaly } from './types'
 
 function makeRun(overrides: Partial<CronRun> & { jobId: string; ts: number }): CronRun {
   return {
@@ -261,5 +264,158 @@ describe('computeCostSummary', () => {
     const summary = computeCostSummary(runs)
     expect(summary.totalCost).toBe(0)
     expect(summary.runCosts).toEqual([])
+  })
+
+  it('includes optimizationScore and insights in summary', () => {
+    const runs = [
+      makeRun({ jobId: 'a', ts: 1000, usage: { input_tokens: 5000, output_tokens: 1000, total_tokens: 6000 } }),
+    ]
+    const summary = computeCostSummary(runs)
+    expect(summary.optimizationScore).toBeDefined()
+    expect(summary.optimizationScore.overall).toBeGreaterThanOrEqual(0)
+    expect(summary.optimizationScore.overall).toBeLessThanOrEqual(100)
+    expect(Array.isArray(summary.insights)).toBe(true)
+  })
+})
+
+describe('computeOptimizationInsights', () => {
+  it('returns healthy insight when no issues found', () => {
+    // Good cache ratio (>40%), no expensive models, no anomalies, normal output ratio
+    const runCosts: RunCost[] = Array.from({ length: 6 }, (_, i) => ({
+      ts: 1000 + i, jobId: 'a', model: 'claude-haiku-4-5', provider: 'anthropic',
+      inputTokens: 300, outputTokens: 200, totalTokens: 1000, cacheTokens: 500, minCost: 0.001,
+    }))
+    const jobCosts = computeJobCosts(runCosts)
+    // cacheTokens = 3000, totalInput = 1800, ratio = 3000/(1800+3000) = 62.5% -> above 40% threshold
+    const cacheSavings: CacheSavings = { cacheTokens: 3000, estimatedSavings: 0.01 }
+    const insights = computeOptimizationInsights(runCosts, jobCosts, [], cacheSavings, 0.006)
+    expect(insights).toHaveLength(1)
+    expect(insights[0].title).toBe('System is well-optimized')
+    expect(insights[0].severity).toBe('info')
+  })
+
+  it('flags low cache utilization as critical', () => {
+    const runCosts: RunCost[] = Array.from({ length: 6 }, (_, i) => ({
+      ts: 1000 + i, jobId: 'a', model: 'claude-sonnet-4-6', provider: 'anthropic',
+      inputTokens: 1000, outputTokens: 200, totalTokens: 1200, cacheTokens: 0, minCost: 0.006,
+    }))
+    const jobCosts = computeJobCosts(runCosts)
+    const cacheSavings: CacheSavings = { cacheTokens: 0, estimatedSavings: 0 }
+    const insights = computeOptimizationInsights(runCosts, jobCosts, [], cacheSavings, 0.036)
+    const cacheInsight = insights.find(i => i.title.includes('caching'))
+    expect(cacheInsight).toBeDefined()
+    expect(cacheInsight!.severity).toBe('critical')
+    expect(cacheInsight!.projectedSavings).toBeGreaterThan(0)
+  })
+
+  it('flags expensive models', () => {
+    const runCosts: RunCost[] = Array.from({ length: 3 }, (_, i) => ({
+      ts: 1000 + i, jobId: 'a', model: 'claude-opus-4-6', provider: 'anthropic',
+      inputTokens: 1000, outputTokens: 200, totalTokens: 1200, cacheTokens: 600, minCost: 0.018,
+    }))
+    const jobCosts = computeJobCosts(runCosts)
+    const cacheSavings: CacheSavings = { cacheTokens: 1800, estimatedSavings: 0.01 }
+    const insights = computeOptimizationInsights(runCosts, jobCosts, [], cacheSavings, 0.054)
+    const tierInsight = insights.find(i => i.title.includes('Opus'))
+    expect(tierInsight).toBeDefined()
+    expect(tierInsight!.projectedSavings).toBeGreaterThan(0)
+  })
+
+  it('flags anomalies', () => {
+    const runCosts: RunCost[] = [{
+      ts: 1000, jobId: 'a', model: 'claude-sonnet-4-6', provider: 'anthropic',
+      inputTokens: 5000, outputTokens: 5000, totalTokens: 10000, cacheTokens: 3000, minCost: 0.09,
+    }]
+    const anomalies: TokenAnomaly[] = [{
+      ts: 1000, jobId: 'a', totalTokens: 10000, medianTokens: 1000, ratio: 10,
+    }]
+    const jobCosts = computeJobCosts(runCosts)
+    const cacheSavings: CacheSavings = { cacheTokens: 3000, estimatedSavings: 0.01 }
+    const insights = computeOptimizationInsights(runCosts, jobCosts, anomalies, cacheSavings, 0.09)
+    const anomalyInsight = insights.find(i => i.title.includes('anomal'))
+    expect(anomalyInsight).toBeDefined()
+  })
+
+  it('sorts insights by severity (critical first)', () => {
+    const runCosts: RunCost[] = Array.from({ length: 6 }, (_, i) => ({
+      ts: 1000 + i, jobId: 'a', model: 'claude-opus-4-6', provider: 'anthropic',
+      inputTokens: 1000, outputTokens: 200, totalTokens: 1200, cacheTokens: 0, minCost: 0.018,
+    }))
+    const jobCosts = computeJobCosts(runCosts)
+    const cacheSavings: CacheSavings = { cacheTokens: 0, estimatedSavings: 0 }
+    const insights = computeOptimizationInsights(runCosts, jobCosts, [], cacheSavings, 0.108)
+    if (insights.length >= 2) {
+      const sevOrder = { critical: 0, warning: 1, info: 2 }
+      for (let i = 1; i < insights.length; i++) {
+        expect(sevOrder[insights[i].severity]).toBeGreaterThanOrEqual(sevOrder[insights[i - 1].severity])
+      }
+    }
+  })
+})
+
+describe('computeOptimizationScore', () => {
+  it('returns perfect score for empty data', () => {
+    const score = computeOptimizationScore([], [], { cacheTokens: 0, estimatedSavings: 0 })
+    expect(score.overall).toBe(100)
+    expect(score.cacheScore).toBe(100)
+    expect(score.tieringScore).toBe(100)
+    expect(score.anomalyScore).toBe(100)
+    expect(score.efficiencyScore).toBe(100)
+  })
+
+  it('penalizes expensive model overuse', () => {
+    const runs: RunCost[] = Array.from({ length: 10 }, (_, i) => ({
+      ts: 1000 + i, jobId: 'a', model: 'claude-opus-4-6', provider: 'anthropic',
+      inputTokens: 1000, outputTokens: 200, totalTokens: 1200, cacheTokens: 0, minCost: 0.018,
+    }))
+    const score = computeOptimizationScore(runs, [], { cacheTokens: 0, estimatedSavings: 0 })
+    expect(score.tieringScore).toBe(0)
+  })
+
+  it('penalizes per anomaly', () => {
+    const runs: RunCost[] = [{
+      ts: 1000, jobId: 'a', model: 'claude-sonnet-4-6', provider: 'anthropic',
+      inputTokens: 1000, outputTokens: 200, totalTokens: 1200, cacheTokens: 500, minCost: 0.006,
+    }]
+    const anomalies: TokenAnomaly[] = [
+      { ts: 1, jobId: 'a', totalTokens: 10000, medianTokens: 1000, ratio: 10 },
+      { ts: 2, jobId: 'a', totalTokens: 10000, medianTokens: 1000, ratio: 10 },
+      { ts: 3, jobId: 'a', totalTokens: 10000, medianTokens: 1000, ratio: 10 },
+    ]
+    const score = computeOptimizationScore(runs, anomalies, { cacheTokens: 500, estimatedSavings: 0.001 })
+    expect(score.anomalyScore).toBe(40) // 100 - 3*20
+  })
+
+  it('rewards high cache ratio', () => {
+    const runs: RunCost[] = Array.from({ length: 5 }, (_, i) => ({
+      ts: 1000 + i, jobId: 'a', model: 'claude-sonnet-4-6', provider: 'anthropic',
+      inputTokens: 400, outputTokens: 200, totalTokens: 1000, cacheTokens: 0, minCost: 0.004,
+    }))
+    const highCache = computeOptimizationScore(runs, [], { cacheTokens: 3000, estimatedSavings: 0.01 })
+    const lowCache = computeOptimizationScore(runs, [], { cacheTokens: 0, estimatedSavings: 0 })
+    expect(highCache.cacheScore).toBeGreaterThan(lowCache.cacheScore)
+  })
+})
+
+describe('buildCostAnalysisPrompt', () => {
+  it('includes key metrics in prompt', () => {
+    const summary = computeCostSummary([
+      makeRun({ jobId: 'daily-report', ts: 1000, usage: { input_tokens: 5000, output_tokens: 1000, total_tokens: 6000 } }),
+    ])
+    const prompt = buildCostAnalysisPrompt(summary, { 'daily-report': 'Daily Report' })
+    expect(prompt).toContain('Total estimated cost')
+    expect(prompt).toContain('Daily Report')
+    expect(prompt).toContain('Optimization score')
+    expect(prompt).toContain('Biggest Savings Opportunity')
+    expect(prompt).toContain('Cache Strategy')
+    expect(prompt).toContain('Model Selection')
+  })
+
+  it('falls back to jobId when no name provided', () => {
+    const summary = computeCostSummary([
+      makeRun({ jobId: 'abc-123', ts: 1000 }),
+    ])
+    const prompt = buildCostAnalysisPrompt(summary, {})
+    expect(prompt).toContain('abc-123')
   })
 })

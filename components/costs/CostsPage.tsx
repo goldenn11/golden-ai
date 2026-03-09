@@ -1,9 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import type { CostSummary, CronJob, RunCost } from '@/lib/types'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Agent, CostSummary, CronJob, RunCost, OptimizationInsight } from '@/lib/types'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertTriangle, TrendingDown, TrendingUp } from 'lucide-react'
+import { AlertTriangle, TrendingDown, TrendingUp, Activity, Zap, MessageSquare, ChevronDown } from 'lucide-react'
+import { generateId } from '@/lib/id'
+import { buildCostAnalysisPrompt } from '@/lib/costs'
+import { renderMarkdown } from '@/lib/sanitize'
 
 /* ── Formatters ───────────────────────────────────────────────── */
 
@@ -410,13 +413,122 @@ function RunDetailTable({ runCosts, jobName }: { runCosts: RunCost[]; jobName: (
   )
 }
 
+/* ── Optimization Score Ring ──────────────────────────────────── */
+
+function OptScoreRing({ score, size = 64 }: { score: number; size?: number }) {
+  const r = (size - 8) / 2
+  const circumference = 2 * Math.PI * r
+  const offset = circumference - (score / 100) * circumference
+  const color = score >= 75 ? 'var(--system-green)' : score >= 50 ? 'var(--system-orange)' : 'var(--system-red)'
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--fill-tertiary)" strokeWidth={5} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} fill="none"
+        stroke={color} strokeWidth={5}
+        strokeDasharray={circumference} strokeDashoffset={offset}
+        strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: 'stroke-dashoffset 600ms ease' }}
+      />
+      <text x={size / 2} y={size / 2 + 1} textAnchor="middle" dominantBaseline="central"
+        fill="var(--text-primary)" fontSize={size > 50 ? 16 : 12} fontWeight="700">{score}</text>
+    </svg>
+  )
+}
+
+/* ── Insight Card ────────────────────────────────────────────── */
+
+const SEV_COLORS = {
+  critical: 'var(--system-red)',
+  warning: 'var(--system-orange)',
+  info: 'var(--accent)',
+}
+
+function InsightCard({ insight, onAction }: { insight: OptimizationInsight; onAction: (prompt: string) => void }) {
+  const color = SEV_COLORS[insight.severity]
+  return (
+    <div style={{
+      padding: 'var(--space-3) var(--space-4)',
+      borderRadius: 'var(--radius-md, 10px)',
+      border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`,
+      background: `color-mix(in srgb, ${color} 5%, transparent)`,
+    }}>
+      <div className="flex items-start" style={{ gap: 'var(--space-3)' }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 5 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 'var(--text-footnote)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>
+            {insight.title}
+            {insight.projectedSavings !== null && insight.projectedSavings > 0 && (
+              <span style={{ marginLeft: 8, fontSize: 'var(--text-caption1)', fontWeight: 600, color: 'var(--system-green)' }}>
+                Save ~{fmtCost(insight.projectedSavings)}/period
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 'var(--text-caption1)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {insight.description}
+          </div>
+        </div>
+        <button
+          onClick={() => onAction(insight.action)}
+          className="btn-ghost focus-ring"
+          style={{
+            padding: '4px 10px',
+            borderRadius: 16,
+            fontSize: 'var(--text-caption2)',
+            fontWeight: 600,
+            border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
+            background: 'transparent',
+            color,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            flexShrink: 0,
+          }}
+        >
+          <Zap size={10} />
+          Fix
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ── Chat message type ───────────────────────────────────────── */
+
+interface CostChatMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  isStreaming?: boolean
+}
+
 /* ── CostsPage ───────────────────────────────────────────────── */
 
 export function CostsPage() {
   const [data, setData] = useState<CostSummary | null>(null)
+  const [agents, setAgents] = useState<Agent[]>([])
   const [jobNames, setJobNames] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // AI Cost Analysis state
+  const [analysisOpen, setAnalysisOpen] = useState(false)
+  const [analysisStreaming, setAnalysisStreaming] = useState(false)
+  const [analysisContent, setAnalysisContent] = useState('')
+  const analysisRef = useRef<HTMLDivElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const chatTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [chatMessages, setChatMessages] = useState<CostChatMessage[]>([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatStreaming, setChatStreaming] = useState(false)
+
+  const rootAgent = useMemo(
+    () => agents.find(a => a.reportsTo === null) || agents[0] || null,
+    [agents],
+  )
 
   useEffect(() => {
     setLoading(true)
@@ -431,9 +543,14 @@ export function CostsPage() {
         if (!r.ok) throw new Error('Failed to load crons')
         return r.json()
       }),
+      fetch('/api/agents').then(r => {
+        if (!r.ok) throw new Error('Failed to load agents')
+        return r.json()
+      }),
     ])
-      .then(([costData, cronData]: [CostSummary, { crons: CronJob[] }]) => {
+      .then(([costData, cronData, agentData]: [CostSummary, { crons: CronJob[] }, Agent[]]) => {
         setData(costData)
+        setAgents(agentData)
         const names: Record<string, string> = {}
         for (const c of cronData.crons) {
           names[c.id] = c.name
@@ -447,6 +564,15 @@ export function CostsPage() {
       })
   }, [])
 
+  // Auto-scroll analysis
+  useEffect(() => {
+    if (analysisRef.current) analysisRef.current.scrollTop = analysisRef.current.scrollHeight
+  }, [analysisContent])
+
+  useEffect(() => {
+    if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
   const jobName = (id: string) => jobNames[id] || id
 
   // Date range from run costs
@@ -456,6 +582,141 @@ export function CostsPage() {
         newest: new Date(Math.max(...data.runCosts.map(r => r.ts))),
       }
     : null
+
+  // Total projected savings from all insights
+  const totalProjectedSavings = useMemo(
+    () => data?.insights.reduce((s, i) => s + (i.projectedSavings ?? 0), 0) ?? 0,
+    [data],
+  )
+
+  // Run AI cost analysis
+  const runAnalysis = useCallback(async () => {
+    if (!rootAgent || analysisStreaming || !data) return
+    setAnalysisOpen(true)
+    setAnalysisStreaming(true)
+    setAnalysisContent('')
+    setChatMessages([])
+
+    const prompt = buildCostAnalysisPrompt(data, jobNames)
+
+    try {
+      const res = await fetch(`/api/chat/${rootAgent.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] }),
+      })
+      if (!res.ok || !res.body) throw new Error('Stream failed')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullContent = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            try {
+              const chunk = JSON.parse(line.slice(6))
+              if (chunk.content) {
+                fullContent += chunk.content
+                setAnalysisContent(fullContent)
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+    } catch {
+      setAnalysisContent(prev => prev + '\n\n[Error: Failed to connect to agent]')
+    } finally {
+      setAnalysisStreaming(false)
+    }
+  }, [rootAgent, analysisStreaming, data, jobNames])
+
+  // Send follow-up chat message
+  const sendChatMessage = useCallback(async (overrideText?: string) => {
+    const text = (overrideText ?? chatInput).trim()
+    if (!text || chatStreaming || !rootAgent || !data) return
+    if (!overrideText) setChatInput('')
+
+    const userMsg: CostChatMessage = { id: generateId(), role: 'user', content: text }
+    const assistantMsgId = generateId()
+    const assistantMsg: CostChatMessage = { id: assistantMsgId, role: 'assistant', content: '', isStreaming: true }
+
+    setChatMessages(prev => [...prev, userMsg, assistantMsg])
+    setChatStreaming(true)
+
+    const prompt = buildCostAnalysisPrompt(data, jobNames)
+    const allMessages = [...chatMessages, userMsg]
+    const apiMessages = [
+      { role: 'user' as const, content: prompt },
+      ...(analysisContent ? [{ role: 'assistant' as const, content: analysisContent }] : []),
+      ...allMessages.map(m => ({ role: m.role, content: m.content })),
+    ]
+
+    try {
+      const res = await fetch(`/api/chat/${rootAgent.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages }),
+      })
+      if (!res.ok || !res.body) throw new Error('Stream failed')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let fullContent = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+        for (const line of lines) {
+          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+            try {
+              const chunk = JSON.parse(line.slice(6))
+              if (chunk.content) {
+                fullContent += chunk.content
+                const captured = fullContent
+                setChatMessages(prev =>
+                  prev.map(m => m.id === assistantMsgId ? { ...m, content: captured, isStreaming: true } : m)
+                )
+              }
+            } catch { /* skip */ }
+          }
+        }
+      }
+
+      const finalContent = fullContent
+      setChatMessages(prev =>
+        prev.map(m => m.id === assistantMsgId ? { ...m, content: finalContent, isStreaming: false } : m)
+      )
+    } catch {
+      setChatMessages(prev =>
+        prev.map(m => m.id === assistantMsgId ? { ...m, content: 'Error getting response. Check API connection.', isStreaming: false } : m)
+      )
+    } finally {
+      setChatStreaming(false)
+      chatTextareaRef.current?.focus()
+    }
+  }, [chatInput, chatStreaming, rootAgent, chatMessages, analysisContent, data, jobNames])
+
+  // Handle insight action -- open analysis if needed, then send
+  const handleInsightAction = useCallback((prompt: string) => {
+    if (!analysisOpen) setAnalysisOpen(true)
+    // If no analysis has been run, run it first then the user's action will be available in chat
+    if (!analysisContent && !analysisStreaming) {
+      runAnalysis()
+      return
+    }
+    sendChatMessage(prompt)
+  }, [analysisOpen, analysisContent, analysisStreaming, runAnalysis, sendChatMessage])
 
   return (
     <div className="h-full flex flex-col overflow-hidden animate-fade-in" style={{ background: 'var(--bg)' }}>
@@ -477,7 +738,7 @@ export function CostsPage() {
           letterSpacing: '-0.5px',
           lineHeight: 'var(--leading-tight)',
         }}>
-          Costs
+          Costs & Optimization
         </h1>
         {!loading && data && (
           <p style={{ fontSize: 'var(--text-footnote)', color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
@@ -632,6 +893,293 @@ export function CostsPage() {
               </SummaryCard>
             </div>
 
+            {/* ── Optimization Score + Insights ─────────────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}
+              className="opt-row">
+
+              {/* Score card */}
+              <div style={{
+                background: 'var(--material-regular)',
+                border: '1px solid var(--separator)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--space-4)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 'var(--space-3)',
+              }}>
+                <div style={{ fontSize: 'var(--text-caption1)', color: 'var(--text-tertiary)', fontWeight: 'var(--weight-medium)' }}>
+                  Optimization Score
+                </div>
+                <OptScoreRing score={data.optimizationScore.overall} size={80} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', width: '100%' }}>
+                  {([
+                    ['Cache', data.optimizationScore.cacheScore],
+                    ['Tiering', data.optimizationScore.tieringScore],
+                    ['Anomaly', data.optimizationScore.anomalyScore],
+                    ['Efficiency', data.optimizationScore.efficiencyScore],
+                  ] as [string, number][]).map(([label, score]) => (
+                    <div key={label} className="flex items-center" style={{ gap: 4, fontSize: 'var(--text-caption2)' }}>
+                      <div style={{
+                        width: 32, height: 4, borderRadius: 2,
+                        background: 'var(--fill-tertiary)', overflow: 'hidden', flexShrink: 0,
+                      }}>
+                        <div style={{
+                          width: `${score}%`, height: '100%', borderRadius: 2,
+                          background: score >= 75 ? 'var(--system-green)' : score >= 50 ? 'var(--system-orange)' : 'var(--system-red)',
+                          transition: 'width 600ms ease',
+                        }} />
+                      </div>
+                      <span style={{ color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>{label}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontWeight: 600, marginLeft: 'auto' }}>{score}</span>
+                    </div>
+                  ))}
+                </div>
+                {totalProjectedSavings > 0 && (
+                  <div style={{
+                    marginTop: 'var(--space-1)',
+                    padding: '4px 10px',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(48,209,88,0.10)',
+                    fontSize: 'var(--text-caption1)',
+                    fontWeight: 600,
+                    color: 'var(--system-green)',
+                    textAlign: 'center',
+                  }}>
+                    Potential savings: {fmtCost(totalProjectedSavings)}/period
+                  </div>
+                )}
+              </div>
+
+              {/* Insights list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                <div style={{ fontSize: 'var(--text-caption1)', color: 'var(--text-tertiary)', fontWeight: 'var(--weight-medium)', marginBottom: 2 }}>
+                  Optimization Insights
+                </div>
+                {data.insights.length === 0 ? (
+                  <div style={{
+                    padding: 'var(--space-4)',
+                    background: 'var(--material-regular)',
+                    border: '1px solid var(--separator)',
+                    borderRadius: 'var(--radius-md)',
+                    textAlign: 'center',
+                    fontSize: 'var(--text-footnote)',
+                    color: 'var(--system-green)',
+                  }}>
+                    All clear -- no optimization issues detected
+                  </div>
+                ) : (
+                  data.insights.map(insight => (
+                    <InsightCard key={insight.id} insight={insight} onAction={handleInsightAction} />
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* ── AI Cost Analysis ────────────────────────────────── */}
+            <div style={{
+              background: 'var(--material-regular)',
+              border: '1px solid var(--separator)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--space-4)',
+              overflow: 'hidden',
+            }}>
+              <button
+                onClick={() => {
+                  if (!analysisOpen) {
+                    setAnalysisOpen(true)
+                    if (!analysisContent && !analysisStreaming) runAnalysis()
+                  } else {
+                    setAnalysisOpen(!analysisOpen)
+                  }
+                }}
+                className="focus-ring"
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-3)',
+                  padding: 'var(--space-3) var(--space-4)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 'var(--text-footnote)',
+                  fontWeight: 'var(--weight-semibold)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <Activity size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                AI Cost Analysis
+                {analysisStreaming && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontSize: 'var(--text-caption1)', color: 'var(--accent)', fontWeight: 500,
+                  }}>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)',
+                      animation: 'pulse 1.2s infinite',
+                    }} />
+                    Analyzing...
+                  </span>
+                )}
+                {analysisContent && !analysisStreaming && (
+                  <span style={{
+                    fontSize: 'var(--text-caption2)', fontWeight: 600,
+                    padding: '1px 8px', borderRadius: 10,
+                    background: 'rgba(48,209,88,0.12)', color: 'var(--system-green)',
+                  }}>
+                    Complete
+                  </span>
+                )}
+                <ChevronDown
+                  size={14}
+                  style={{
+                    marginLeft: 'auto', color: 'var(--text-tertiary)',
+                    transform: analysisOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 200ms ease',
+                  }}
+                />
+              </button>
+
+              {analysisOpen && (
+                <div style={{ borderTop: '1px solid var(--separator)' }}>
+                  {/* Analysis content */}
+                  {analysisStreaming && !analysisContent && (
+                    <div style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {[180, 220, 160, 200].map((w, i) => (
+                        <div key={i} style={{
+                          width: w, height: 12, borderRadius: 4,
+                          background: 'var(--fill-tertiary)',
+                          animation: `shimmer 1.6s ease-in-out ${i * 0.15}s infinite`,
+                        }} />
+                      ))}
+                    </div>
+                  )}
+
+                  {analysisContent && (
+                    <div
+                      ref={analysisRef}
+                      className="markdown-body"
+                      style={{
+                        padding: 'var(--space-4)',
+                        maxHeight: 400,
+                        overflowY: 'auto',
+                        fontSize: 'var(--text-footnote)',
+                        lineHeight: 1.6,
+                        color: 'var(--text-primary)',
+                      }}
+                      dangerouslySetInnerHTML={{ __html: renderMarkdown(analysisContent) }}
+                    />
+                  )}
+
+                  {/* Inline chat (after analysis complete) */}
+                  {analysisContent && !analysisStreaming && (
+                    <>
+                      <div style={{ borderTop: '1px solid var(--separator)' }} />
+
+                      {/* Chat messages */}
+                      {chatMessages.length > 0 && (
+                        <div style={{ maxHeight: 300, overflowY: 'auto', padding: 'var(--space-3) var(--space-4)' }}>
+                          {chatMessages.map(msg => (
+                            <div key={msg.id} style={{
+                              marginBottom: 'var(--space-3)',
+                              display: 'flex',
+                              justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                            }}>
+                              <div style={{
+                                maxWidth: '85%',
+                                padding: 'var(--space-2) var(--space-3)',
+                                borderRadius: 'var(--radius-md, 10px)',
+                                fontSize: 'var(--text-footnote)',
+                                lineHeight: 1.5,
+                                ...(msg.role === 'user' ? {
+                                  background: 'var(--accent)',
+                                  color: 'white',
+                                } : {
+                                  background: 'var(--fill-secondary)',
+                                  color: 'var(--text-primary)',
+                                }),
+                              }}>
+                                {msg.role === 'assistant' ? (
+                                  <div
+                                    className="markdown-body"
+                                    dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content || '...') }}
+                                  />
+                                ) : (
+                                  msg.content
+                                )}
+                                {msg.isStreaming && (
+                                  <span style={{
+                                    display: 'inline-block', width: 6, height: 14,
+                                    background: 'var(--text-tertiary)', borderRadius: 1,
+                                    marginLeft: 2, animation: 'blink 1s step-end infinite',
+                                  }} />
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          <div ref={chatEndRef} />
+                        </div>
+                      )}
+
+                      {/* Chat input */}
+                      <div style={{
+                        display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)',
+                        padding: 'var(--space-3) var(--space-4)',
+                        borderTop: chatMessages.length > 0 ? '1px solid var(--separator)' : undefined,
+                      }}>
+                        <MessageSquare size={14} style={{ color: 'var(--text-tertiary)', flexShrink: 0, marginBottom: 6 }} />
+                        <textarea
+                          ref={chatTextareaRef}
+                          value={chatInput}
+                          onChange={e => setChatInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              sendChatMessage()
+                            }
+                          }}
+                          placeholder="Ask about cost optimization..."
+                          disabled={chatStreaming}
+                          rows={1}
+                          style={{
+                            flex: 1, resize: 'none',
+                            background: 'var(--fill-tertiary)',
+                            border: '1px solid var(--separator)',
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '6px 10px',
+                            fontSize: 'var(--text-footnote)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                            lineHeight: 1.4,
+                            fontFamily: 'inherit',
+                          }}
+                        />
+                        <button
+                          onClick={() => sendChatMessage()}
+                          disabled={chatStreaming || !chatInput.trim()}
+                          className="btn-ghost focus-ring"
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: 'var(--text-caption1)',
+                            fontWeight: 600,
+                            background: 'var(--accent)',
+                            color: 'white',
+                            border: 'none',
+                            cursor: chatStreaming || !chatInput.trim() ? 'not-allowed' : 'pointer',
+                            opacity: chatStreaming || !chatInput.trim() ? 0.5 : 1,
+                          }}
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* ── Most Expensive Crons ───────────────────────────── */}
             <TopCrons jobCosts={data.jobCosts} jobName={jobName} />
 
@@ -734,6 +1282,17 @@ export function CostsPage() {
       </div>
 
       <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        @keyframes shimmer {
+          0%, 100% { opacity: 0.3; }
+          50% { opacity: 0.6; }
+        }
+        @keyframes blink {
+          50% { opacity: 0; }
+        }
         @media (max-width: 768px) {
           .costs-summary-grid {
             grid-template-columns: repeat(2, 1fr) !important;
@@ -742,6 +1301,9 @@ export function CostsPage() {
             grid-template-columns: 1fr !important;
           }
           .charts-row {
+            grid-template-columns: 1fr !important;
+          }
+          .opt-row {
             grid-template-columns: 1fr !important;
           }
         }

@@ -5,7 +5,7 @@
 ```bash
 npm run setup        # Auto-detect OpenClaw config, write .env.local
 npm run dev          # Start dev server (Turbopack, port 3000)
-npm test             # Run all 612 tests via Vitest (25 suites)
+npm test             # Run all 624 tests via Vitest (25 suites)
 npx tsc --noEmit     # Type-check (expect 0 errors)
 npx next build       # Production build
 ```
@@ -159,9 +159,9 @@ User types "/" -> matchCommands() shows autocomplete dropdown
 
 **System message rendering:** System messages skip avatar/timestamp/spacing logic -- `shouldShowAvatar` and `shouldShowTimestamp` look through system messages to the previous non-system message for grouping. Media parsing is also skipped for system messages.
 
-### Cost Dashboard
+### Cost Dashboard & Optimization
 
-The Cost Dashboard (`app/costs/page.tsx`) provides token usage and cost analysis derived from cron run data:
+The Cost Dashboard (`app/costs/page.tsx`) provides token usage, cost analysis, and AI-powered optimization derived from cron run data:
 
 ```
 GET /api/costs
@@ -174,9 +174,15 @@ GET /api/costs
      - Anomaly detection (runs >5x median tokens)
      - Week-over-week comparison
      - Cache savings estimation
+     - Optimization score (0-100, four sub-dimensions)
+     - Optimization insights (actionable recommendations with projected savings)
 ```
 
-**Key files:** `lib/costs.ts` (all computation, 21 tests), `components/costs/CostsPage.tsx` (UI with daily bar chart, job table, model breakdown, anomaly alerts)
+**Optimization engine:** `computeOptimizationScore()` produces a 0-100 composite score from cache utilization, model tiering, anomaly count, and output efficiency. `computeOptimizationInsights()` derives actionable findings: cache enablement, model downgrades (Opus->Sonnet->Haiku), anomaly alerts, verbose output detection. Each insight includes a projected savings amount and an AI action prompt.
+
+**AI Cost Analysis:** The page includes a collapsible AI analysis panel (same SSE streaming pattern as pipeline health check). `buildCostAnalysisPrompt()` generates a detailed prompt from the cost summary. An inline chat appears after the analysis completes for follow-up questions. Insight "Fix" buttons send targeted prompts to the inline chat.
+
+**Key files:** `lib/costs.ts` (all computation, 33 tests), `components/costs/CostsPage.tsx` (UI with optimization score, insights, AI analysis, daily bar chart, job table, model breakdown, anomaly alerts)
 
 **Pricing:** Built-in table for Claude model variants (Opus, Sonnet, Haiku). Falls back to Sonnet pricing for unknown models. Prefix matching handles versioned model IDs.
 
@@ -284,7 +290,7 @@ Used by: `lib/memory.ts`, `lib/cron-runs.ts`, `lib/kanban/chat-store.ts`, `lib/c
 | `lib/validation.ts` | `validateChatMessages()` -- validates text + multimodal content arrays |
 | `lib/sse.ts` | `parseSSEBuffer()`, `parseSSELine()` -- client-safe SSE stream parser |
 | `lib/logs.ts` | `getLogEntries()`, `computeLogSummary()` -- historical log parsing (cron + config) |
-| `lib/costs.ts` | `getCostSummary()` -- cost analysis from cron run data |
+| `lib/costs.ts` | `getCostSummary()` -- cost analysis, optimization score/insights, AI analysis prompt builder |
 | `lib/sanitize.ts` | `renderMarkdown()`, `colorizeJson()`, `escapeHtml()` -- safe HTML rendering |
 | `lib/slash-commands.ts` | Slash command registry, parser (`parseSlashCommand`), matcher (`matchCommands`), executor (`executeCommand`) |
 | `lib/id.ts` | `generateId()` -- UUID generator with fallback for non-secure contexts (HTTP, older browsers) |
@@ -331,7 +337,7 @@ Used by: `lib/memory.ts`, `lib/cron-runs.ts`, `lib/kanban/chat-store.ts`, `lib/c
 
 ## Testing
 
-25 test suites, 612 tests total. All in `lib/` directory.
+25 test suites, 624 tests total. All in `lib/` directory.
 
 ```bash
 npx vitest run                     # All tests

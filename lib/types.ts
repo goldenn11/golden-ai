@@ -96,6 +96,23 @@ export interface CacheSavings {
   estimatedSavings: number
 }
 
+export interface OptimizationInsight {
+  id: string
+  severity: 'critical' | 'warning' | 'info'
+  title: string
+  description: string
+  projectedSavings: number | null   // estimated monthly $ savings, null if not quantifiable
+  action: string                    // prompt to send to AI agent for self-heal
+}
+
+export interface OptimizationScore {
+  overall: number                   // 0-100
+  cacheScore: number                // 0-100
+  tieringScore: number              // 0-100
+  anomalyScore: number              // 0-100
+  efficiencyScore: number           // 0-100
+}
+
 export interface CostSummary {
   totalCost: number
   topSpender: { jobId: string; cost: number } | null
@@ -106,6 +123,8 @@ export interface CostSummary {
   runCosts: RunCost[]
   weekOverWeek: WeekOverWeek
   cacheSavings: CacheSavings
+  optimizationScore: OptimizationScore
+  insights: OptimizationInsight[]
 }
 
 export interface CronJob {
