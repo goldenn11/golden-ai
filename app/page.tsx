@@ -5,7 +5,7 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import type { Agent } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Map as MapIcon, LayoutGrid, List, X, MessageSquare, User } from "lucide-react"
+import { Map as MapIcon, LayoutGrid, List, X, MessageSquare, User, Zap } from "lucide-react"
 import { ErrorState } from "@/components/ErrorState"
 import { AgentAvatar } from "@/components/AgentAvatar"
 import { GridView } from "@/components/GridView"
@@ -77,6 +77,14 @@ function MapSkeleton() {
   )
 }
 
+interface DailyBrief {
+  title: string
+  date: string | null
+  summary: string
+  highlights: string[]
+  focus: string
+}
+
 type View = "map" | "grid" | "feed"
 
 const VIEW_ICONS: Record<View, React.ComponentType<{ size: number }>> = {
@@ -101,7 +109,26 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<View>("map")
+  const [brief, setBrief] = useState<DailyBrief | null>(null)
+  const [briefLoading, setBriefLoading] = useState(true)
   const closeRef = useRef<HTMLButtonElement>(null)
+
+  // Fetch today's brief
+  useEffect(() => {
+    function fetchBrief() {
+      fetch("/api/briefs/today")
+        .then((r) => r.ok ? r.json() : null)
+        .then((data) => {
+          if (data?.brief) setBrief(data.brief)
+          else setBrief(null)
+        })
+        .catch(() => setBrief(null))
+        .finally(() => setBriefLoading(false))
+    }
+    fetchBrief()
+    const interval = setInterval(fetchBrief, 60000)
+    return () => clearInterval(interval)
+  }, [])
 
   const loadData = useCallback(() => {
     setLoading(true)
@@ -153,8 +180,127 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex h-full relative" style={{ background: "var(--bg)" }}>
+    <div className="flex flex-col h-full" style={{ background: "var(--bg)" }}>
+      {/* ── Today's Brief ── */}
+      {!briefLoading && brief && (
+        <div
+          className="flex-shrink-0 animate-fade-in"
+          style={{
+            padding: "var(--space-3) var(--space-4)",
+            borderBottom: "1px solid var(--separator)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--material-regular)",
+              border: "1px solid var(--separator)",
+              borderRadius: "var(--radius-md)",
+              padding: "var(--space-4)",
+            }}
+          >
+            <div className="flex items-center" style={{ gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+              <Zap size={14} style={{ color: "var(--system-yellow)" }} />
+              <span style={{
+                fontSize: "var(--text-caption1)",
+                fontWeight: "var(--weight-semibold)",
+                letterSpacing: "var(--tracking-wide)",
+                textTransform: "uppercase",
+                color: "var(--system-yellow)",
+              }}>
+                Today&apos;s Brief
+              </span>
+              {brief.date && (
+                <span style={{ fontSize: "var(--text-caption2)", color: "var(--text-tertiary)", marginLeft: "auto" }}>
+                  {brief.date}
+                </span>
+              )}
+            </div>
+
+            <p style={{
+              fontSize: "var(--text-subheadline)",
+              color: "var(--text-primary)",
+              lineHeight: "var(--leading-normal)",
+              margin: "0 0 var(--space-3)",
+            }}>
+              {brief.summary}
+            </p>
+
+            {brief.highlights.length > 0 && (
+              <ul style={{
+                margin: "0 0 var(--space-3)",
+                padding: "0 0 0 var(--space-4)",
+                listStyle: "disc",
+              }}>
+                {brief.highlights.map((h, i) => (
+                  <li key={i} style={{
+                    fontSize: "var(--text-footnote)",
+                    color: "var(--text-secondary)",
+                    lineHeight: "var(--leading-normal)",
+                    marginBottom: 2,
+                  }}>
+                    {h}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div style={{
+              padding: "var(--space-2) var(--space-3)",
+              borderRadius: "var(--radius-sm)",
+              background: "color-mix(in srgb, var(--system-yellow) 10%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--system-yellow) 20%, transparent)",
+            }}>
+              <div style={{
+                fontSize: "var(--text-caption2)",
+                fontWeight: "var(--weight-semibold)",
+                color: "var(--system-yellow)",
+                marginBottom: 2,
+                textTransform: "uppercase",
+                letterSpacing: "var(--tracking-wide)",
+              }}>
+                Focus
+              </div>
+              <div style={{
+                fontSize: "var(--text-footnote)",
+                color: "var(--text-primary)",
+                fontWeight: "var(--weight-medium)",
+              }}>
+                {brief.focus}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!briefLoading && !brief && (
+        <div
+          className="flex-shrink-0"
+          style={{
+            padding: "var(--space-3) var(--space-4)",
+            borderBottom: "1px solid var(--separator)",
+          }}
+        >
+          <div
+            className="flex items-center"
+            style={{
+              gap: "var(--space-2)",
+              background: "var(--material-regular)",
+              border: "1px solid var(--separator)",
+              borderRadius: "var(--radius-md)",
+              padding: "var(--space-3) var(--space-4)",
+            }}
+          >
+            <Zap size={14} style={{ color: "var(--text-tertiary)" }} />
+            <span style={{ fontSize: "var(--text-footnote)", color: "var(--text-tertiary)" }}>
+              No brief today — PULSE runs at 7am UTC
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ── Main content area ── */}
+      <div className="flex-1 relative" style={{ minHeight: 0 }}>
+      <div className="flex h-full relative">
       <div className="flex-1 h-full relative">
         {loading ? (
           <MapSkeleton />
@@ -699,6 +845,8 @@ export default function HomePage() {
           </div>
         </div>
       )}
+    </div>
+    </div>
     </div>
   )
 }
