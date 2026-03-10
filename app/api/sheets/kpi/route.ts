@@ -39,6 +39,38 @@ const OFF = {
 
 const FIELD_KEYS = Object.keys(OFF) as (keyof typeof OFF)[];
 
+// Daily metrics subset
+const DAILY_OFF = {
+  callsScheduled: 2,
+  noShows:        3,
+  liveCalls:      6,
+  totalSales:     12,
+  contractValue:  13,
+  cashCollected:  14,
+};
+
+const DAILY_KEYS = Object.keys(DAILY_OFF) as (keyof typeof DAILY_OFF)[];
+
+// Day-to-column mapping: day 1=C, 2=D, ..., 26=AB, 27=AC, ..., 31=AG
+const DAY_COLS: string[] = [];
+for (let d = 1; d <= 31; d++) {
+  // C=3rd column (A=1, B=2, C=3, ...)
+  const colNum = d + 2; // day 1 -> col 3 (C)
+  if (colNum <= 26) {
+    DAY_COLS.push(String.fromCharCode(64 + colNum));
+  } else {
+    DAY_COLS.push('A' + String.fromCharCode(64 + colNum - 26));
+  }
+}
+
+const WEEK_BUCKETS = [
+  { label: 'Week 1 (1\u20137)',   start: 1,  end: 7  },
+  { label: 'Week 2 (8\u201314)',  start: 8,  end: 14 },
+  { label: 'Week 3 (15\u201321)', start: 15, end: 21 },
+  { label: 'Week 4 (22\u201328)', start: 22, end: 28 },
+  { label: 'Week 5 (29\u201331)', start: 29, end: 31 },
+];
+
 function parseNum(val: unknown): number {
   if (val === null || val === undefined || val === '') return 0;
   const s = String(val).replace(/[$,%\s]/g, '');
@@ -57,30 +89,70 @@ export async function GET() {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
-    // One batch request for all cells
-    const ranges = MONTHS.flatMap(({ row }) =>
+    // Monthly totals ranges (existing)
+    const monthlyRanges = MONTHS.flatMap(({ row }) =>
       FIELD_KEYS.map(k => `'${SHEET}'!${TOT}${row + OFF[k]}`)
     );
 
+    // Current month daily ranges
+    const now = new Date();
+    const currentMonthIdx = now.getUTCMonth(); // 0-based
+    const currentMonthRow = MONTHS[currentMonthIdx].row;
+
+    const dailyRanges = DAY_COLS.flatMap(col =>
+      DAILY_KEYS.map(k => `'${SHEET}'!${col}${currentMonthRow + DAILY_OFF[k]}`)
+    );
+
+    // Single batch request for everything
+    const allRanges = [...monthlyRanges, ...dailyRanges];
+
     const resp = await sheets.spreadsheets.values.batchGet({
       spreadsheetId: SPREADSHEET_ID,
-      ranges,
+      ranges: allRanges,
     });
 
     const vr = resp.data.valueRanges || [];
     const fc = FIELD_KEYS.length;
+    const dc = DAILY_KEYS.length;
+    const monthlyCount = monthlyRanges.length;
 
+    // Parse monthly totals
     const months = MONTHS.map((m, mi) => {
       const get = (fi: number) => vr[mi * fc + fi]?.values?.[0]?.[0] ?? 0;
       const d = Object.fromEntries(FIELD_KEYS.map((k, fi) => [k, parseNum(get(fi))])) as Record<keyof typeof OFF, number>;
 
-      // Calculate rates from raw numbers (sheet formula cells return null in API)
       const closeRate     = d.liveCalls > 0 ? Math.round((d.totalSales / d.liveCalls) * 100) : 0;
       const cashPerCall   = d.liveCalls > 0 ? Math.round(d.cashCollected / d.liveCalls) : 0;
       const revenuePerCall = d.liveCalls > 0 ? Math.round(d.contractValue / d.liveCalls) : 0;
       const showRate      = d.callsScheduled > 0 ? Math.round((d.liveCalls / d.callsScheduled) * 100) : 0;
 
       return { month: m.name, ...d, closeRate, cashPerCall, revenuePerCall, showRate };
+    });
+
+    // Parse daily data for current month
+    const daily = Array.from({ length: 31 }, (_, di) => {
+      const get = (fi: number) => vr[monthlyCount + di * dc + fi]?.values?.[0]?.[0] ?? 0;
+      const d = Object.fromEntries(DAILY_KEYS.map((k, fi) => [k, parseNum(get(fi))])) as Record<keyof typeof DAILY_OFF, number>;
+      return { day: di + 1, ...d };
+    });
+
+    // Aggregate into weekly buckets
+    const weekly = WEEK_BUCKETS.map(bucket => {
+      const days = daily.filter(d => d.day >= bucket.start && d.day <= bucket.end);
+      const sum = (key: keyof typeof DAILY_OFF) => days.reduce((s, d) => s + d[key], 0);
+      const liveCalls = sum('liveCalls');
+      const totalSales = sum('totalSales');
+      const closeRate = liveCalls > 0 ? Math.round((totalSales / liveCalls) * 100) : 0;
+      return {
+        week: bucket.label,
+        callsScheduled: sum('callsScheduled'),
+        noShows: sum('noShows'),
+        liveCalls,
+        totalSales,
+        contractValue: sum('contractValue'),
+        cashCollected: sum('cashCollected'),
+        closeRate,
+      };
     });
 
     const active = months.filter(m => m.liveCalls > 0);
@@ -97,12 +169,19 @@ export async function GET() {
       cashPerCall:    0,
       showRate:       0,
     };
-    ytd.closeRate   = ytd.liveCalls > 0 ? Math.round((ytd.totalSales / ytd.liveCalls) * 100) : 0;
-    ytd.cashPerCall = ytd.liveCalls > 0 ? Math.round(ytd.cashCollected / ytd.liveCalls) : 0;
+    ytd.closeRate      = ytd.liveCalls > 0 ? Math.round((ytd.totalSales / ytd.liveCalls) * 100) : 0;
+    ytd.cashPerCall    = ytd.liveCalls > 0 ? Math.round(ytd.cashCollected / ytd.liveCalls) : 0;
     ytd.revenuePerCall = ytd.liveCalls > 0 ? Math.round(ytd.contractValue / ytd.liveCalls) : 0;
-    ytd.showRate    = ytd.callsScheduled > 0 ? Math.round((ytd.liveCalls / ytd.callsScheduled) * 100) : 0;
+    ytd.showRate       = ytd.callsScheduled > 0 ? Math.round((ytd.liveCalls / ytd.callsScheduled) * 100) : 0;
 
-    return NextResponse.json({ months, ytd, activeMonths: active.length });
+    return NextResponse.json({
+      months,
+      ytd,
+      activeMonths: active.length,
+      daily,
+      weekly,
+      currentMonth: MONTHS[currentMonthIdx].name,
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('KPI fetch error:', err);
