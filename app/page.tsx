@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import dynamic from "next/dynamic"
-import type { Agent, CronJob } from "@/lib/types"
+import type { Agent } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Map as MapIcon, LayoutGrid, List, X, MessageSquare, User } from "lucide-react"
 import { ErrorState } from "@/components/ErrorState"
@@ -38,27 +38,6 @@ const TOOL_ICONS: Record<string, string> = {
   edit: "\u2702\uFE0F",
   sessions_spawn: "\uD83D\uDD04",
   memory_search: "\uD83E\udDE0",
-}
-
-function StatusDot({ status }: { status: CronJob["status"] }) {
-  return (
-    <span
-      className={status === "error" ? "animate-error-pulse" : ""}
-      style={{
-        display: "inline-block",
-        width: 6,
-        height: 6,
-        borderRadius: "50%",
-        flexShrink: 0,
-        background:
-          status === "ok"
-            ? "var(--system-green)"
-            : status === "error"
-              ? "var(--system-red)"
-              : "var(--text-tertiary)",
-      }}
-    />
-  )
 }
 
 /* ──────────────────────────────────────────────
@@ -118,7 +97,6 @@ const VIEW_OPTIONS: { key: View; label: string }[] = [
 export default function HomePage() {
   const router = useRouter()
   const [agents, setAgents] = useState<Agent[]>([])
-  const [crons, setCrons] = useState<CronJob[]>([])
   const [selected, setSelected] = useState<Agent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -128,20 +106,12 @@ export default function HomePage() {
   const loadData = useCallback(() => {
     setLoading(true)
     setError(null)
-    Promise.all([
-      fetch("/api/agents").then((r) => {
+    fetch("/api/agents")
+      .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch agents")
         return r.json()
-      }),
-      fetch("/api/crons").then((r) => {
-        if (!r.ok) throw new Error("Failed to fetch crons")
-        return r.json()
-      }),
-    ])
-      .then(([a, cronData]) => {
-        setAgents(a)
-        setCrons(Array.isArray(cronData) ? cronData : cronData.crons ?? [])
       })
+      .then((a) => setAgents(a))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
@@ -168,8 +138,6 @@ export default function HomePage() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selected])
 
-  const agentCrons = selected ? crons.filter((c) => c.agentId === selected.id) : []
-
   // Find hierarchy info for the detail panel
   const parentAgent = selected?.reportsTo
     ? agents.find((a) => a.id === selected.reportsTo)
@@ -193,21 +161,21 @@ export default function HomePage() {
         ) : view === "map" ? (
           <OrgMap
             agents={agents}
-            crons={crons}
+            crons={[]}
             selectedId={selected?.id ?? null}
             onNodeClick={setSelected}
           />
         ) : view === "grid" ? (
           <GridView
             agents={agents}
-            crons={crons}
+            crons={[]}
             selectedId={selected?.id ?? null}
             onSelect={setSelected}
           />
         ) : (
           <FeedView
             agents={agents}
-            crons={crons}
+            crons={[]}
             selectedId={selected?.id ?? null}
             onSelect={setSelected}
           />
@@ -727,87 +695,6 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* CRONS */}
-              {agentCrons.length > 0 && (
-                <div>
-                  <div
-                    style={{
-                      fontSize: "var(--text-caption1)",
-                      fontWeight: "var(--weight-semibold)",
-                      letterSpacing: "var(--tracking-wide)",
-                      textTransform: "uppercase",
-                      color: "var(--text-tertiary)",
-                      padding: "0 var(--space-4) var(--space-2)",
-                    }}
-                  >
-                    Scheduled Tasks
-                  </div>
-                  <div
-                    style={{
-                      background: "var(--material-regular)",
-                      borderRadius: "var(--radius-md)",
-                      border: "1px solid var(--separator)",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {agentCrons.map((c, idx) => (
-                      <div
-                        key={c.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "var(--space-3)",
-                          padding: "var(--space-3) var(--space-4)",
-                          borderTop: idx > 0 ? "1px solid var(--separator)" : undefined,
-                        }}
-                      >
-                        <StatusDot status={c.status} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div
-                            style={{
-                              fontSize: "var(--text-body)",
-                              fontWeight: "var(--weight-medium)",
-                              color: "var(--text-primary)",
-                              whiteSpace: "nowrap",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                            }}
-                          >
-                            {c.name}
-                          </div>
-                          {c.lastError && (
-                            <div
-                              style={{
-                                fontSize: "var(--text-caption1)",
-                                color: "var(--system-red)",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                marginTop: 1,
-                              }}
-                            >
-                              {c.lastError}
-                            </div>
-                          )}
-                        </div>
-                        <span
-                          style={{
-                            fontSize: "var(--text-caption1)",
-                            fontFamily: "var(--font-mono)",
-                            color: "var(--text-tertiary)",
-                            flexShrink: 0,
-                            background: "var(--fill-quaternary)",
-                            padding: "2px 6px",
-                            borderRadius: 4,
-                          }}
-                        >
-                          {c.schedule}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

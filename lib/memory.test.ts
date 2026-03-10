@@ -9,10 +9,6 @@ const { mockExistsSync, mockReadFileSync, mockStatSync, mockReaddirSync } = vi.h
   mockReaddirSync: vi.fn(),
 }))
 
-const { mockExecSync } = vi.hoisted(() => ({
-  mockExecSync: vi.fn(),
-}))
-
 vi.mock('fs', () => ({
   existsSync: mockExistsSync,
   readFileSync: mockReadFileSync,
@@ -24,11 +20,6 @@ vi.mock('fs', () => ({
     statSync: mockStatSync,
     readdirSync: mockReaddirSync,
   },
-}))
-
-vi.mock('child_process', () => ({
-  execSync: mockExecSync,
-  default: { execSync: mockExecSync },
 }))
 
 import { getMemoryFiles, getMemoryConfig, getMemoryStatus, computeMemoryStats } from './memory'
@@ -279,56 +270,60 @@ describe('getMemoryStatus', () => {
     vi.unstubAllEnvs()
     vi.resetAllMocks()
     vi.stubEnv('WORKSPACE_PATH', WS)
-    vi.stubEnv('OPENCLAW_BIN', '/usr/local/bin/openclaw')
   })
 
-  it('parses valid JSON status', () => {
-    mockExecSync.mockReturnValue(JSON.stringify({
-      indexed: true,
-      lastIndexed: '2026-03-01T12:00:00Z',
-      totalEntries: 42,
-      vectorAvailable: true,
-      embeddingProvider: 'openai',
+  it('detects indexed status from memory-index directory', () => {
+    mockExistsSync.mockImplementation((p: string) => {
+      if (p === `${WS}/memory`) return true
+      if (p.includes('memory-index')) return true
+      if (p.includes('openclaw.json')) return true
+      return false
+    })
+    mockReaddirSync.mockReturnValue(['doc1.md', 'doc2.md', '2026-03-01.md'])
+    mockStatSync.mockReturnValue({ mtime: new Date('2026-03-01T12:00:00Z') })
+    mockReadFileSync.mockReturnValue(JSON.stringify({
+      agents: {
+        defaults: {
+          memorySearch: {
+            enabled: true,
+            provider: 'openai',
+          },
+        },
+      },
     }))
 
     const status = getMemoryStatus()
     expect(status.indexed).toBe(true)
-    expect(status.lastIndexed).toBe('2026-03-01T12:00:00Z')
-    expect(status.totalEntries).toBe(42)
+    expect(status.totalEntries).toBe(3)
     expect(status.vectorAvailable).toBe(true)
     expect(status.embeddingProvider).toBe('openai')
   })
 
-  it('falls back to raw text for non-JSON output', () => {
-    mockExecSync.mockReturnValue('Memory index: 42 entries, last indexed 2h ago')
+  it('returns defaults when no memory directory exists', () => {
+    mockExistsSync.mockReturnValue(false)
 
     const status = getMemoryStatus()
     expect(status.indexed).toBe(false)
-    expect(status.raw).toBe('Memory index: 42 entries, last indexed 2h ago')
+    expect(status.raw).toBe('No memory index found')
   })
 
-  it('handles CLI timeout gracefully', () => {
-    mockExecSync.mockImplementation(() => { throw new Error('ETIMEDOUT') })
-
-    const status = getMemoryStatus()
-    expect(status.indexed).toBe(false)
-    expect(status.raw).toBe('Memory status unavailable')
-  })
-
-  it('handles missing OPENCLAW_BIN gracefully', () => {
-    vi.stubEnv('OPENCLAW_BIN', '')
+  it('handles missing WORKSPACE_PATH gracefully', () => {
+    vi.stubEnv('WORKSPACE_PATH', '')
 
     const status = getMemoryStatus()
     expect(status.indexed).toBe(false)
     expect(status.raw).toBe('Memory status unavailable')
   })
 
-  it('handles missing fields in JSON response', () => {
-    mockExecSync.mockReturnValue(JSON.stringify({ indexed: true }))
+  it('returns totalEntries null when memory dir does not exist', () => {
+    mockExistsSync.mockImplementation((p: string) => {
+      if (p.includes('memory-index')) return true
+      return false
+    })
+    mockStatSync.mockReturnValue({ mtime: new Date('2026-03-01T12:00:00Z') })
 
     const status = getMemoryStatus()
     expect(status.indexed).toBe(true)
-    expect(status.lastIndexed).toBeNull()
     expect(status.totalEntries).toBeNull()
   })
 })

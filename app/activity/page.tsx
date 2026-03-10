@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { LogEntry, LogFilter, LogSummary } from '@/lib/types'
 import { timeAgo } from '@/lib/cron-utils'
 import { Skeleton } from '@/components/ui/skeleton'
-import { RefreshCw, Radio } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { ErrorState } from '@/components/ErrorState'
 import { LogBrowser } from '@/components/activity/LogBrowser'
 
@@ -169,27 +169,6 @@ export default function ActivityPage() {
             )}
           </div>
           <div className="flex items-center" style={{ gap: 'var(--space-3)' }}>
-            {/* Open Live Stream */}
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('clawport:open-stream-widget'))}
-              className="focus-ring flex items-center"
-              style={{
-                padding: '6px 14px',
-                borderRadius: 'var(--radius-sm)',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: 'var(--text-footnote)',
-                fontWeight: 'var(--weight-semibold)',
-                gap: 6,
-                background: 'var(--accent-fill)',
-                color: 'var(--accent)',
-                transition: 'all 200ms var(--ease-smooth)',
-              }}
-            >
-              <Radio size={14} />
-              Open Live Logs
-            </button>
-
             <span style={{ fontSize: 'var(--text-caption1)', color: 'var(--text-tertiary)' }}>
               Updated {updatedAgo}
             </span>

@@ -15,10 +15,10 @@ export function ArchitectureSection() {
     <>
       <Heading>Architecture</Heading>
       <Paragraph>
-        ClawPort is a Next.js 16 dashboard for managing OpenClaw AI agents. It
+        Golden AI is a Next.js 16 dashboard for managing your AI agents. It
         provides an org chart (Org Map), direct agent chat with multimodal
         support, cron monitoring, kanban task board, and memory browsing. All AI
-        calls route through the OpenClaw gateway -- no separate API keys needed.
+        calls route through the gateway -- no separate API keys needed.
       </Paragraph>
 
       <SubHeading>Tech Stack</SubHeading>
@@ -28,7 +28,7 @@ export function ArchitectureSection() {
           "React 19.2.3, TypeScript 5",
           "Tailwind CSS 4 with CSS custom properties for theming",
           "Vitest 4 with jsdom environment (17 suites, 288 tests)",
-          "OpenAI SDK (routed to Claude via OpenClaw gateway at localhost:18789)",
+          "OpenAI SDK (routed to Claude via gateway at localhost:18789)",
           "React Flow (@xyflow/react) for org chart",
         ]}
       />
@@ -133,7 +133,7 @@ export function ArchitectureSection() {
   kanban/page.tsx       -- Task board
   crons/page.tsx        -- Cron job monitor
   memory/page.tsx       -- Memory file browser
-  settings/page.tsx     -- ClawPort personalization
+  settings/page.tsx     -- Golden AI personalization
   docs/page.tsx         -- Documentation browser
   api/
     agents/route.ts     -- GET agents from registry

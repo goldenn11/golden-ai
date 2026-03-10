@@ -14,7 +14,7 @@ export function TroubleshootingSection() {
     <>
       <Heading>Troubleshooting</Heading>
       <Paragraph>
-        Common issues and their solutions when running ClawPort.
+        Common issues and their solutions when running Golden AI.
       </Paragraph>
 
       {/* ── npm install permission errors ──────────────────────── */}
@@ -117,7 +117,7 @@ npm install -g clawport-ui`}
       {/* ── Issue 2 ────────────────────────────────────────────── */}
       <SubHeading>Gateway connection refused / chat not working</SubHeading>
       <Paragraph>
-        The OpenClaw gateway isn't running. Start it:
+        The gateway isn't running. Start it:
       </Paragraph>
       <CodeBlock>{`openclaw gateway run`}</CodeBlock>
       <Paragraph>Verify it's reachable:</Paragraph>
@@ -135,7 +135,7 @@ npm install -g clawport-ui`}
             <strong style={{ color: "var(--text-primary)" }}>
               Check WORKSPACE_PATH
             </strong>{" "}
-            -- make sure it points to a valid OpenClaw workspace directory.
+            -- make sure it points to a valid workspace directory.
           </>,
           <>
             <strong style={{ color: "var(--text-primary)" }}>
@@ -151,7 +151,7 @@ npm install -g clawport-ui`}
             <strong style={{ color: "var(--text-primary)" }}>
               Check the server console
             </strong>{" "}
-            -- ClawPort logs errors to the terminal where{" "}
+            -- Golden AI logs errors to the terminal where{" "}
             <InlineCode>npm run dev</InlineCode> is running.
           </>,
         ]}
@@ -169,7 +169,7 @@ npm install -g clawport-ui`}
         The <InlineCode>soulPath</InlineCode> in your agents.json is relative to{" "}
         <InlineCode>WORKSPACE_PATH</InlineCode>. If your workspace is at{" "}
         <InlineCode>/Users/you/.openclaw/workspace</InlineCode> and soulPath is{" "}
-        <InlineCode>"agents/vera/SOUL.md"</InlineCode>, ClawPort will look for{" "}
+        <InlineCode>"agents/vera/SOUL.md"</InlineCode>, Golden AI will look for{" "}
         <InlineCode>
           /Users/you/.openclaw/workspace/agents/vera/SOUL.md
         </InlineCode>
@@ -202,7 +202,7 @@ npm install -g clawport-ui`}
             <strong style={{ color: "var(--text-primary)" }}>
               Image too large
             </strong>{" "}
-            -- ClawPort resizes to 1200px max, but extremely large images may
+            -- Golden AI resizes to 1200px max, but extremely large images may
             still hit limits. Try a smaller image.
           </>,
         ]}
@@ -221,7 +221,7 @@ npm install -g clawport-ui`}
         won't appear on agent profiles.
       </Paragraph>
       <Paragraph>
-        Audio transcription (speech-to-text) uses Whisper through the OpenClaw
+        Audio transcription (speech-to-text) uses Whisper through the
         gateway and does not require a separate key.
       </Paragraph>
 

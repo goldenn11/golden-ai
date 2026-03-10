@@ -410,24 +410,28 @@ export default function CronsPage() {
   const refresh = useCallback(() => {
     setRefreshing(true);
     setError(null);
-    Promise.all([
-      fetch("/api/crons").then((r) => {
-        if (!r.ok) throw new Error("Failed to load crons");
+
+    const agentsPromise = fetch("/api/agents").then((r) => {
+      if (!r.ok) throw new Error("Failed to load agents");
+      return r.json();
+    });
+
+    // Crons are optional — may not be configured yet
+    const cronsPromise = fetch("/api/crons")
+      .then((r) => {
+        if (!r.ok) return { crons: [], pipelines: [] };
         return r.json();
-      }),
-      fetch("/api/agents").then((r) => {
-        if (!r.ok) throw new Error("Failed to load agents");
-        return r.json();
-      }),
-    ])
+      })
+      .catch(() => ({ crons: [], pipelines: [] }));
+
+    Promise.all([cronsPromise, agentsPromise])
       .then(([cronData, a]) => {
-        // Backward compat: if response is a plain array, treat as crons-only
         if (Array.isArray(cronData)) {
           setCrons(cronData);
           setPipelines([]);
         } else {
-          setCrons(cronData.crons);
-          setPipelines(cronData.pipelines || []);
+          setCrons(cronData.crons ?? []);
+          setPipelines(cronData.pipelines ?? []);
         }
         setAgents(a);
         setLastRefresh(new Date());

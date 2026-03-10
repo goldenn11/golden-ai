@@ -1,12 +1,5 @@
 export const runtime = 'nodejs'
 
-import OpenAI from 'openai'
-
-const openai = new OpenAI({
-  baseURL: 'http://localhost:18789/v1',
-  apiKey: process.env.OPENCLAW_GATEWAY_TOKEN,
-})
-
 export async function POST(request: Request) {
   let formData: FormData
   try {
@@ -20,17 +13,43 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Missing audio file' }, { status: 400 })
   }
 
+  // Use OpenAI-compatible Whisper API if OPENAI_API_KEY is set
+  const openaiKey = process.env.OPENAI_API_KEY
+  if (!openaiKey) {
+    return Response.json(
+      { error: 'Transcription not available. Set OPENAI_API_KEY in .env.local for Whisper support.' },
+      { status: 503 }
+    )
+  }
+
   try {
-    const transcription = await openai.audio.transcriptions.create({
-      model: 'whisper-1',
-      file: audioFile,
+    const body = new FormData()
+    body.append('file', audioFile)
+    body.append('model', 'whisper-1')
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiKey}`,
+      },
+      body,
     })
 
-    return Response.json({ text: transcription.text })
+    if (!response.ok) {
+      const errText = await response.text()
+      console.error('Whisper API error:', response.status, errText)
+      return Response.json(
+        { error: `Transcription failed (${response.status})` },
+        { status: 502 }
+      )
+    }
+
+    const result = await response.json()
+    return Response.json({ text: result.text })
   } catch (err) {
     console.error('Transcription error:', err)
     return Response.json(
-      { error: 'Transcription failed. Check OpenClaw gateway.' },
+      { error: 'Transcription failed. Check OPENAI_API_KEY configuration.' },
       { status: 500 }
     )
   }

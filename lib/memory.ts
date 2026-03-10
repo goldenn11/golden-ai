@@ -1,7 +1,6 @@
 import type { MemoryFileInfo, MemoryConfig, MemoryStatus, MemoryStats } from '@/lib/types'
 import { readFileSync, existsSync, statSync, readdirSync } from 'fs'
 import { join, basename, dirname } from 'path'
-import { execSync } from 'child_process'
 import { requireEnv } from '@/lib/env'
 
 // ── Date pattern for daily logs ─────────────────────────────────
@@ -195,6 +194,11 @@ export function getMemoryConfig(): MemoryConfig {
 
 // ── getMemoryStatus ─────────────────────────────────────────────
 
+/**
+ * Derive memory status from filesystem inspection.
+ * No longer depends on the OpenClaw CLI — reads directly from workspace files
+ * and the openclaw.json config.
+ */
 export function getMemoryStatus(): MemoryStatus {
   const defaults: MemoryStatus = {
     indexed: false,
@@ -205,34 +209,63 @@ export function getMemoryStatus(): MemoryStatus {
     raw: 'Memory status unavailable',
   }
 
-  let bin: string
+  let workspacePath: string
   try {
-    bin = requireEnv('OPENCLAW_BIN')
+    workspacePath = requireEnv('WORKSPACE_PATH')
   } catch {
     return defaults
   }
 
   try {
-    const output = execSync(`${bin} memory status --deep`, {
-      timeout: 15000,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    }).trim()
+    // Check for memory index files to determine indexed status
+    const memoryDir = join(workspacePath, 'memory')
+    const indexDir = join(dirname(workspacePath), 'memory-index')
 
-    // Try JSON parse first
-    try {
-      const data = JSON.parse(output)
-      return {
-        indexed: data.indexed ?? false,
-        lastIndexed: data.lastIndexed ?? null,
-        totalEntries: data.totalEntries ?? null,
-        vectorAvailable: data.vectorAvailable ?? null,
-        embeddingProvider: data.embeddingProvider ?? null,
-        raw: output,
-      }
-    } catch {
-      // Plain text fallback
-      return { ...defaults, raw: output }
+    const hasMemoryFiles = existsSync(memoryDir)
+    const hasIndex = existsSync(indexDir)
+
+    // Count memory entries from files
+    let totalEntries: number | null = null
+    if (hasMemoryFiles) {
+      try {
+        const entries = readdirSync(memoryDir).filter(f => /\.(md|json)$/.test(f))
+        totalEntries = entries.length
+      } catch { /* skip */ }
+    }
+
+    // Check config for embedding provider
+    let embeddingProvider: string | null = null
+    let vectorAvailable: boolean | null = null
+    const configPath = join(dirname(workspacePath), 'openclaw.json')
+    if (existsSync(configPath)) {
+      try {
+        const config = JSON.parse(readFileSync(configPath, 'utf-8'))
+        const ms = config?.agents?.defaults?.memorySearch ?? {}
+        embeddingProvider = ms.provider ?? null
+        vectorAvailable = ms.enabled ?? null
+      } catch { /* skip */ }
+    }
+
+    // Get last indexed time from index directory mtime
+    let lastIndexed: string | null = null
+    if (hasIndex) {
+      try {
+        lastIndexed = statSync(indexDir).mtime.toISOString()
+      } catch { /* skip */ }
+    }
+
+    const statusParts: string[] = []
+    if (hasIndex) statusParts.push('Index available')
+    if (totalEntries !== null) statusParts.push(`${totalEntries} memory files`)
+    if (embeddingProvider) statusParts.push(`Provider: ${embeddingProvider}`)
+
+    return {
+      indexed: hasIndex,
+      lastIndexed,
+      totalEntries,
+      vectorAvailable,
+      embeddingProvider,
+      raw: statusParts.length > 0 ? statusParts.join(', ') : 'No memory index found',
     }
   } catch {
     return defaults

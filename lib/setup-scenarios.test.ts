@@ -150,8 +150,8 @@ describe('Fresh user (no OpenClaw installed)', () => {
       expect(() => getMemoryConfig()).toThrow('Missing required environment variable')
     })
 
-    it('getMemoryStatus returns defaults without OPENCLAW_BIN', () => {
-      vi.stubEnv('OPENCLAW_BIN', '')
+    it('getMemoryStatus returns defaults without WORKSPACE_PATH', () => {
+      vi.stubEnv('WORKSPACE_PATH', '')
       const status = getMemoryStatus()
       expect(status.indexed).toBe(false)
       expect(status.raw).toBe('Memory status unavailable')
@@ -250,14 +250,12 @@ describe('Partial user (OpenClaw installed, no ClawPort config)', () => {
     })
   })
 
-  describe('memory status — CLI not responding', () => {
-    it('handles CLI command failure gracefully', () => {
-      mockExecSync.mockImplementation(() => {
-        throw new Error('Command not found: openclaw')
-      })
+  describe('memory status — no index directory', () => {
+    it('returns not-indexed when no memory-index dir exists', () => {
+      // mockExistsSync already returns false for everything in this scenario
       const status = getMemoryStatus()
       expect(status.indexed).toBe(false)
-      expect(status.raw).toBe('Memory status unavailable')
+      expect(status.raw).toBe('No memory index found')
     })
   })
 
@@ -572,21 +570,30 @@ describe('Existing user (fully configured workspace)', () => {
     })
   })
 
-  describe('memory status — CLI returns JSON', () => {
-    it('parses full memory status from CLI', () => {
-      vi.stubEnv('OPENCLAW_BIN', OPENCLAW_BIN)
-      mockExecSync.mockReturnValue(JSON.stringify({
-        indexed: true,
-        lastIndexed: '2026-03-04T08:00:00Z',
-        totalEntries: 128,
-        vectorAvailable: true,
-        embeddingProvider: 'openai',
+  describe('memory status — filesystem inspection', () => {
+    it('derives memory status from filesystem', () => {
+      mockExistsSync.mockImplementation((p: string) => {
+        if (typeof p === 'string' && p.includes('memory-index')) return true
+        if (typeof p === 'string' && p.endsWith('/memory')) return true
+        if (typeof p === 'string' && p.endsWith('openclaw.json')) return true
+        return false
+      })
+      mockReaddirSync.mockReturnValue(['doc1.md', 'doc2.md', '2026-03-01.md'])
+      mockStatSync.mockReturnValue({ mtime: new Date('2026-03-04T08:00:00Z') })
+      mockReadFileSync.mockReturnValue(JSON.stringify({
+        agents: {
+          defaults: {
+            memorySearch: {
+              enabled: true,
+              provider: 'openai',
+            },
+          },
+        },
       }))
 
       const status = getMemoryStatus()
       expect(status.indexed).toBe(true)
-      expect(status.lastIndexed).toBe('2026-03-04T08:00:00Z')
-      expect(status.totalEntries).toBe(128)
+      expect(status.totalEntries).toBe(3)
       expect(status.vectorAvailable).toBe(true)
       expect(status.embeddingProvider).toBe('openai')
     })

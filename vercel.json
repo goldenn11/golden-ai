@@ -1,0 +1,36 @@
+{
+  "crons": [
+    {
+      "path": "/api/crons/scribe",
+      "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/crons/echo",
+      "schedule": "0 8 * * 0"
+    },
+    {
+      "path": "/api/crons/pulse",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/crons/lumen",
+      "schedule": "0 10 * * 1"
+    },
+    {
+      "path": "/api/crons/herald",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/crons/maven",
+      "schedule": "0 11 * * 1"
+    },
+    {
+      "path": "/api/crons/ledger",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/crons/relay",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

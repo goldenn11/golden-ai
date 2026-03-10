@@ -1,18 +1,13 @@
 import { NextResponse } from "next/server"
 import { existsSync, mkdirSync, writeFileSync } from "fs"
-import { join } from "path"
-import { loadPipelines } from "@/lib/cron-pipelines.server"
+import { dirname } from "path"
+import { loadPipelines, getPipelinesPath } from "@/lib/cron-pipelines.server"
 
 export async function GET() {
   return NextResponse.json(loadPipelines())
 }
 
 export async function POST(req: Request) {
-  const workspacePath = process.env.WORKSPACE_PATH
-  if (!workspacePath) {
-    return NextResponse.json({ error: "WORKSPACE_PATH not set" }, { status: 500 })
-  }
-
   const body = await req.json()
 
   // Validate: must be array
@@ -40,14 +35,15 @@ export async function POST(req: Request) {
     }
   }
 
-  // Ensure clawport/ dir exists
-  const dir = join(workspacePath, "clawport")
+  // Ensure data/ dir exists
+  const pipelinesPath = getPipelinesPath()
+  const dir = dirname(pipelinesPath)
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }
 
   // Write pipelines.json
-  writeFileSync(join(dir, "pipelines.json"), JSON.stringify(body, null, 2) + "\n", "utf-8")
+  writeFileSync(pipelinesPath, JSON.stringify(body, null, 2) + "\n", "utf-8")
 
   return NextResponse.json({ ok: true })
 }

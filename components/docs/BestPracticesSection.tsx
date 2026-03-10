@@ -190,8 +190,8 @@ Where its persistent knowledge lives.`}
       />
 
       <Callout type="note">
-        SOUL.md files live in your OpenClaw workspace at the path defined by
-        each agent's <InlineCode>soulPath</InlineCode> field. ClawPort reads
+        SOUL.md files live in your workspace at the path defined by
+        each agent's <InlineCode>soulPath</InlineCode> field. Golden AI reads
         and displays them on the agent detail page.
       </Callout>
 

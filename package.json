@@ -48,6 +48,7 @@
     "prepublishOnly": "npx tsc --noEmit && vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@dagrejs/dagre": "^2.0.4",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",

@@ -5,10 +5,9 @@ import { SettingsProvider } from './settings-provider';
 import { Sidebar } from '@/components/Sidebar';
 import { DynamicFavicon } from '@/components/DynamicFavicon';
 import { OnboardingWizard } from '@/components/OnboardingWizard';
-import { LiveStreamWidget } from '@/components/LiveStreamWidget';
 
 export const metadata: Metadata = {
-  title: 'ClawPort -- Command Centre',
+  title: 'Golden AI -- Command Centre',
   description: 'AI Agent Management Dashboard',
 };
 
@@ -24,7 +23,6 @@ export default function RootLayout({
           <SettingsProvider>
             <DynamicFavicon />
             <OnboardingWizard />
-            <LiveStreamWidget />
             <div
               className="flex h-screen overflow-hidden"
               style={{ background: 'var(--bg)' }}

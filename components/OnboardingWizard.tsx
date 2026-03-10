@@ -158,7 +158,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
         setCronsStatus('ok')
       })
       .catch(() => {
-        setCronsError('Could not reach OpenClaw gateway. Run: openclaw gateway run')
+        setCronsError('Could not reach cron service. Check your configuration.')
         setCronsStatus('error')
       })
   }
@@ -262,7 +262,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                 marginBottom: 'var(--space-3)',
                 lineHeight: 1,
               }}>
-                {settings.portalEmoji ?? '\ud83e\udd9e'}
+                {settings.portalEmoji ?? '\u2728'}
               </div>
               <h2 style={{
                 fontSize: 'var(--text-large-title)',
@@ -271,7 +271,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                 color: 'var(--text-primary)',
                 marginBottom: 'var(--space-2)',
               }}>
-                Welcome to ClawPort
+                Welcome to Golden AI
               </h2>
               <p style={{
                 fontSize: 'var(--text-body)',
@@ -283,7 +283,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
               }}>
                 A visual command centre for your AI agent team.
                 Built to give you direct, real-time access to every agent
-                in your OpenClaw workspace.
+                in your workspace.
               </p>
 
               <div style={{
@@ -335,7 +335,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                 color: 'var(--text-quaternary)',
                 marginTop: 'var(--space-4)',
               }}>
-                Built by John Rice with Jarvis (OpenClaw AI)
+                Golden AI Command Centre
               </p>
             </div>
           )}
@@ -357,7 +357,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                 color: 'var(--text-tertiary)',
                 marginBottom: 'var(--space-4)',
               }}>
-                Verifying your OpenClaw connection...
+                Verifying your connection...
               </p>
 
               {/* Your Name input */}
@@ -438,11 +438,11 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                       fontWeight: 'var(--weight-medium)',
                       color: 'var(--text-primary)',
                     }}>
-                      OpenClaw Gateway
+                      Cron Service
                     </div>
                     {cronsStatus === 'ok' && (
                       <div style={{ fontSize: 'var(--text-caption1)', color: 'var(--text-tertiary)' }}>
-                        Connected at localhost:18789
+                        Connected
                       </div>
                     )}
                     {cronsError && (
@@ -535,7 +535,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                       padding: '1px 4px',
                       borderRadius: 3,
                       color: 'var(--code-text)',
-                    }}>clawport setup</code> in your terminal to auto-detect and configure your environment.
+                    }}>npm run setup</code> in your terminal to auto-detect and configure your environment.
                     You can continue setup and fix this later.
                   </div>
                 </div>
@@ -600,7 +600,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                   <input
                     type="text"
                     className="apple-input"
-                    placeholder="ClawPort"
+                    placeholder="Golden AI"
                     value={localName}
                     onChange={e => setLocalName(e.target.value)}
                     autoFocus
@@ -669,7 +669,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                     fontSize: 16,
                     flexShrink: 0,
                   }}>
-                    {settings.portalEmoji ?? '\ud83e\udd9e'}
+                    {settings.portalEmoji ?? '\u2728'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
@@ -681,7 +681,7 @@ export function OnboardingWizard({ forceOpen, onClose }: OnboardingWizardProps) 
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
                     }}>
-                      {localName || 'ClawPort'}
+                      {localName || 'Golden AI'}
                     </div>
                     <div style={{
                       fontSize: 'var(--text-caption2)',

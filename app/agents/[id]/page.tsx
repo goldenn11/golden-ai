@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, use, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Upload, X } from "lucide-react"
-import type { Agent, CronJob } from "@/lib/types"
+import type { Agent } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorState } from "@/components/ErrorState"
 import { AgentAvatar } from "@/components/AgentAvatar"
@@ -44,27 +44,6 @@ const TOOL_ICONS: Record<string, string> = {
   edit: "\u2702\uFE0F",
   sessions_spawn: "\uD83D\uDD04",
   memory_search: "\uD83E\udDE0",
-}
-
-function StatusDot({ status }: { status: CronJob["status"] }) {
-  return (
-    <span
-      className={status === "error" ? "animate-error-pulse" : ""}
-      style={{
-        display: "inline-block",
-        width: 6,
-        height: 6,
-        borderRadius: "50%",
-        flexShrink: 0,
-        background:
-          status === "ok"
-            ? "var(--system-green)"
-            : status === "error"
-              ? "var(--system-red)"
-              : "var(--text-tertiary)",
-      }}
-    />
-  )
 }
 
 function SoulViewer({ content }: { content: string }) {
@@ -261,28 +240,20 @@ export default function AgentDetailPage({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [agent, setAgent] = useState<Agent | null>(null)
   const [allAgents, setAllAgents] = useState<Agent[]>([])
-  const [crons, setCrons] = useState<CronJob[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const loadData = useCallback(() => {
     setLoading(true)
     setError(null)
-    Promise.all([
-      fetch("/api/agents").then((r) => {
+    fetch("/api/agents")
+      .then((r) => {
         if (!r.ok) throw new Error("Failed to fetch agents")
         return r.json()
-      }),
-      fetch("/api/crons").then((r) => {
-        if (!r.ok) throw new Error("Failed to fetch crons")
-        return r.json()
-      }),
-    ])
-      .then(([agents, cronData]) => {
-        const cronList: CronJob[] = Array.isArray(cronData) ? cronData : cronData.crons ?? []
+      })
+      .then((agents: Agent[]) => {
         setAllAgents(agents)
-        setAgent(agents.find((a: Agent) => a.id === id) || null)
-        setCrons(cronList.filter((cr: CronJob) => cr.agentId === id))
+        setAgent(agents.find((a) => a.id === id) || null)
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
@@ -654,120 +625,6 @@ export default function AgentDetailPage({
             <SoulViewer content={agent.soul} />
           </Card>
         )}
-
-        {/* ── Crons card ── */}
-        <Card>
-          <div
-            className="section-header"
-            style={{
-              marginBottom: "var(--space-3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <span>Crons {crons.length > 0 && `(${crons.length})`}</span>
-          </div>
-          {crons.length === 0 ? (
-            <div
-              style={{
-                fontSize: "var(--text-footnote)",
-                color: "var(--text-tertiary)",
-              }}
-            >
-              No crons associated with this agent
-            </div>
-          ) : (
-            <div
-              style={{
-                borderRadius: "var(--radius-md)",
-                overflow: "hidden",
-                border: "1px solid var(--separator)",
-              }}
-            >
-              {crons.map((c, idx) => (
-                <div
-                  key={c.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "var(--space-2)",
-                    minHeight: 44,
-                    padding: "0 var(--space-3)",
-                    borderTop: idx > 0 ? "1px solid var(--separator)" : undefined,
-                    background:
-                      c.status === "error" ? "rgba(255,69,58,0.06)" : undefined,
-                  }}
-                >
-                  <StatusDot status={c.status} />
-                  <span
-                    style={{
-                      fontSize: "var(--text-body)",
-                      fontFamily: "var(--font-mono)",
-                      fontWeight: "var(--weight-medium)",
-                      color: "var(--text-primary)",
-                      flex: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {c.name}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "var(--text-caption1)",
-                      fontFamily: "var(--font-mono)",
-                      color: "var(--text-tertiary)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {c.schedule}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "var(--text-caption2)",
-                      fontWeight: "var(--weight-medium)",
-                      padding: "2px 8px",
-                      borderRadius: 20,
-                      flexShrink: 0,
-                      background:
-                        c.status === "ok"
-                          ? "rgba(48,209,88,0.1)"
-                          : c.status === "error"
-                            ? "rgba(255,69,58,0.1)"
-                            : "rgba(120,120,128,0.1)",
-                      color:
-                        c.status === "ok"
-                          ? "var(--system-green)"
-                          : c.status === "error"
-                            ? "var(--system-red)"
-                            : "var(--text-secondary)",
-                    }}
-                  >
-                    {c.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-          {crons.length > 0 && (
-            <div style={{ textAlign: "right", marginTop: "var(--space-3)" }}>
-              <Link
-                href="/crons"
-                className="focus-ring"
-                style={{
-                  fontSize: "var(--text-footnote)",
-                  color: "var(--system-blue)",
-                  textDecoration: "none",
-                  fontWeight: "var(--weight-medium)",
-                }}
-              >
-                View all crons &rarr;
-              </Link>
-            </div>
-          )}
-        </Card>
 
         {/* ── Voice card ── */}
         <Card>

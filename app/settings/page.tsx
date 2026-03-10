@@ -291,7 +291,7 @@ export default function SettingsPage() {
               <input
                 type="text"
                 className="apple-input"
-                placeholder="ClawPort"
+                placeholder="Golden AI"
                 value={nameValue}
                 onChange={(e) => setNameValue(e.target.value)}
                 onBlur={() => setPortalName(nameValue || null)}
@@ -409,7 +409,7 @@ export default function SettingsPage() {
                       flexShrink: 0,
                     }}
                   >
-                    {settings.portalEmoji ?? '\ud83e\udd9e'}
+                    {settings.portalEmoji ?? '\u2728'}
                   </div>
                 )}
 
@@ -417,7 +417,7 @@ export default function SettingsPage() {
                 <input
                   type="text"
                   className="apple-input"
-                  placeholder={'\ud83e\udd9e'}
+                  placeholder={'\u2728'}
                   value={emojiValue}
                   onChange={(e) => setEmojiValue(e.target.value)}
                   onBlur={() => setPortalEmoji(emojiValue || null)}

@@ -170,7 +170,7 @@ function EmptyState() {
         color: 'var(--text-primary)',
         letterSpacing: '-0.3px',
       }}>
-        ClawPort Messages
+        Golden AI Messages
       </div>
       <div style={{
         fontSize: 'var(--text-subheadline)',

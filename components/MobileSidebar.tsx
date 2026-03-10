@@ -110,16 +110,24 @@ export function MobileSidebar({
               }}
             />
           ) : (
-            <img
-              src="/clawport-logo.png"
-              alt=""
+            <div
               style={{
-                width: '48px',
-                height: '48px',
-                objectFit: 'contain',
+                width: '28px',
+                height: '28px',
+                borderRadius: '7px',
+                background: 'linear-gradient(135deg, #F5C518, #D4A017)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '15px',
+                fontWeight: 800,
+                color: '#000',
                 flexShrink: 0,
+                letterSpacing: '-0.5px',
               }}
-            />
+            >
+              G
+            </div>
           )}
           <span
             style={{
@@ -129,8 +137,8 @@ export function MobileSidebar({
               letterSpacing: '-0.2px',
             }}
           >
-            {(!settings.portalName || settings.portalName === 'ClawPort')
-              ? <>Claw<span style={{ color: 'var(--accent)' }}>Port</span></>
+            {(!settings.portalName || settings.portalName === 'ClawPort' || settings.portalName === 'Golden AI')
+              ? <>Golden <span style={{ color: 'var(--accent)' }}>AI</span></>
               : settings.portalName}
             {' '}{settings.portalSubtitle ?? 'Command Centre'}
           </span>
@@ -192,16 +200,25 @@ export function MobileSidebar({
                 }}
               />
             ) : (
-              <img
-                src="/clawport-logo.png"
-                alt=""
+              <div
                 style={{
-                  width: '72px',
-                  height: '72px',
-                  objectFit: 'contain',
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #F5C518, #D4A017)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  fontWeight: 800,
+                  color: '#000',
                   flexShrink: 0,
+                  boxShadow: 'var(--shadow-card)',
+                  letterSpacing: '-0.5px',
                 }}
-              />
+              >
+                G
+              </div>
             )}
             <div>
               <div
@@ -212,8 +229,8 @@ export function MobileSidebar({
                   color: 'var(--text-primary)',
                 }}
               >
-                {(!settings.portalName || settings.portalName === 'ClawPort')
-                  ? <>Claw<span style={{ color: 'var(--accent)' }}>Port</span></>
+                {(!settings.portalName || settings.portalName === 'ClawPort' || settings.portalName === 'Golden AI')
+                  ? <>Golden <span style={{ color: 'var(--accent)' }}>AI</span></>
                   : settings.portalName}
               </div>
               <div

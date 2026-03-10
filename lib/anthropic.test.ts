@@ -5,7 +5,6 @@ import {
   extractImageAttachments,
   buildTextPrompt,
   sendViaOpenClaw,
-  execCli,
 } from './anthropic'
 import type { ApiMessage } from './validation'
 
@@ -191,99 +190,33 @@ describe('buildTextPrompt', () => {
   })
 })
 
-// --- execCli ---
-
-vi.mock('child_process', () => ({
-  execFile: vi.fn(),
-}))
-
-import { execFile as mockExecFile } from 'child_process'
-
-describe('execCli', () => {
-  beforeEach(() => {
-    vi.mocked(mockExecFile).mockReset()
-  })
-
-  it('returns stdout on success', async () => {
-    vi.mocked(mockExecFile).mockImplementation((_cmd, _args, _opts, cb) => {
-      (cb as (err: Error | null, stdout: string, stderr: string) => void)(null, 'output', '')
-      return {} as ReturnType<typeof mockExecFile>
-    })
-    const result = await execCli('/usr/bin/openclaw', ['arg1'], 5000)
-    expect(result).toBe('output')
-  })
-
-  it('returns null on error', async () => {
-    vi.mocked(mockExecFile).mockImplementation((_cmd, _args, _opts, cb) => {
-      (cb as (err: Error | null, stdout: string, stderr: string) => void)(new Error('fail'), '', '')
-      return {} as ReturnType<typeof mockExecFile>
-    })
-    const result = await execCli('/usr/bin/openclaw', ['arg1'], 5000)
-    expect(result).toBeNull()
-  })
-})
-
 // --- sendViaOpenClaw ---
+
+const createMock = vi.fn()
+
+vi.mock('@anthropic-ai/sdk', () => {
+  return {
+    default: class MockAnthropic {
+      messages = { create: createMock }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      constructor(_opts?: any) {}
+    },
+  }
+})
 
 describe('sendViaOpenClaw', () => {
   beforeEach(() => {
-    vi.stubEnv('OPENCLAW_BIN', '/usr/bin/openclaw')
-    vi.mocked(mockExecFile).mockReset()
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.stubEnv('ANTHROPIC_API_KEY', 'sk-ant-test-key')
+    createMock.mockReset()
   })
 
   afterEach(() => {
     vi.unstubAllEnvs()
-    vi.useRealTimers()
   })
 
-  it('sends chat.send then polls chat.history for response', async () => {
-    let callCount = 0
-    vi.mocked(mockExecFile).mockImplementation((_cmd, args, _opts, cb) => {
-      callCount++
-      const argsArr = args as string[]
-
-      if (argsArr.includes('chat.send')) {
-        // Step 1: send returns started
-        (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-          null,
-          JSON.stringify({ runId: 'run-1', status: 'started' }),
-          ''
-        )
-      } else if (argsArr.includes('chat.history')) {
-        if (callCount <= 2) {
-          // First poll: still processing (last msg is user)
-          (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-            null,
-            JSON.stringify({
-              messages: [
-                { role: 'user', content: [{ type: 'text', text: 'describe' }], timestamp: Date.now() },
-              ],
-            }),
-            ''
-          )
-        } else {
-          // Second poll: assistant responded
-          (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-            null,
-            JSON.stringify({
-              messages: [
-                { role: 'user', content: [{ type: 'text', text: 'describe' }], timestamp: Date.now() },
-                {
-                  role: 'assistant',
-                  content: [
-                    { type: 'thinking', thinking: 'analyzing...' },
-                    { type: 'text', text: 'I see a Discord bot profile for Jarvis.' },
-                  ],
-                  timestamp: Date.now(),
-                },
-              ],
-            }),
-            ''
-          )
-        }
-      }
-      return {} as ReturnType<typeof mockExecFile>
+  it('returns text from a successful API response', async () => {
+    createMock.mockResolvedValue({
+      content: [{ type: 'text', text: 'I see a Discord bot profile for Jarvis.' }],
     })
 
     const result = await sendViaOpenClaw({
@@ -293,19 +226,10 @@ describe('sendViaOpenClaw', () => {
     })
 
     expect(result).toBe('I see a Discord bot profile for Jarvis.')
-    // Should have called: 1 send + at least 2 history polls
-    expect(callCount).toBeGreaterThanOrEqual(3)
   })
 
-  it('returns null when chat.send fails', async () => {
-    vi.mocked(mockExecFile).mockImplementation((_cmd, _args, _opts, cb) => {
-      (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-        new Error('spawn E2BIG'),
-        '',
-        ''
-      )
-      return {} as ReturnType<typeof mockExecFile>
-    })
+  it('returns null when ANTHROPIC_API_KEY is not set', async () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', '')
 
     const result = await sendViaOpenClaw({
       gatewayToken: 'test-token',
@@ -316,15 +240,8 @@ describe('sendViaOpenClaw', () => {
     expect(result).toBeNull()
   })
 
-  it('returns null when send response is unexpected', async () => {
-    vi.mocked(mockExecFile).mockImplementation((_cmd, _args, _opts, cb) => {
-      (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-        null,
-        JSON.stringify({ error: 'bad request' }),
-        ''
-      )
-      return {} as ReturnType<typeof mockExecFile>
-    })
+  it('returns null when API call fails', async () => {
+    createMock.mockRejectedValue(new Error('API error'))
 
     const result = await sendViaOpenClaw({
       gatewayToken: 'test-token',
@@ -335,80 +252,41 @@ describe('sendViaOpenClaw', () => {
     expect(result).toBeNull()
   })
 
-  it('passes correct params to chat.send', async () => {
-    vi.mocked(mockExecFile).mockImplementation((_cmd, args, _opts, cb) => {
-      const argsArr = args as string[]
-      if (argsArr.includes('chat.send')) {
-        (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-          null,
-          JSON.stringify({ runId: 'r1', status: 'started' }),
-          ''
-        )
-      } else {
-        // Return assistant response immediately
-        (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-          null,
-          JSON.stringify({
-            messages: [{
-              role: 'assistant',
-              content: [{ type: 'text', text: 'ok' }],
-              timestamp: Date.now(),
-            }],
-          }),
-          ''
-        )
-      }
-      return {} as ReturnType<typeof mockExecFile>
+  it('passes image attachments as base64 image blocks', async () => {
+    createMock.mockResolvedValue({
+      content: [{ type: 'text', text: 'ok' }],
     })
 
     await sendViaOpenClaw({
       gatewayToken: 'my-token',
       message: 'describe this',
       attachments: [{ mimeType: 'image/jpeg', content: 'imgdata' }],
-      sessionKey: 'custom:session',
     })
 
-    // Find the chat.send call
-    const sendCall = vi.mocked(mockExecFile).mock.calls.find(
-      c => (c[1] as string[]).includes('chat.send')
-    )
-    expect(sendCall).toBeTruthy()
-    const [bin, args] = sendCall!
-    expect(bin).toBe('/usr/bin/openclaw')
-    expect(args).toContain('--token')
-    expect(args).toContain('my-token')
+    expect(createMock).toHaveBeenCalledOnce()
+    const callArgs = createMock.mock.calls[0][0]
+    expect(callArgs.model).toBe('claude-sonnet-4-6')
+    expect(callArgs.messages).toHaveLength(1)
 
-    const paramsIdx = (args as string[]).indexOf('--params')
-    const paramsJson = JSON.parse((args as string[])[paramsIdx + 1])
-    expect(paramsJson.sessionKey).toBe('custom:session')
-    expect(paramsJson.message).toBe('describe this')
-    expect(paramsJson.attachments).toHaveLength(1)
-    expect(paramsJson.attachments[0].mimeType).toBe('image/jpeg')
+    const content = callArgs.messages[0].content
+    expect(content).toHaveLength(2)
+    expect(content[0]).toEqual({ type: 'text', text: 'describe this' })
+    expect(content[1]).toEqual({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: 'image/jpeg',
+        data: 'imgdata',
+      },
+    })
   })
 
-  it('handles string content in assistant response', async () => {
-    vi.mocked(mockExecFile).mockImplementation((_cmd, args, _opts, cb) => {
-      const argsArr = args as string[]
-      if (argsArr.includes('chat.send')) {
-        (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-          null,
-          JSON.stringify({ runId: 'r1', status: 'started' }),
-          ''
-        )
-      } else {
-        (cb as (err: Error | null, stdout: string, stderr: string) => void)(
-          null,
-          JSON.stringify({
-            messages: [{
-              role: 'assistant',
-              content: 'plain string response',
-              timestamp: Date.now(),
-            }],
-          }),
-          ''
-        )
-      }
-      return {} as ReturnType<typeof mockExecFile>
+  it('handles response with multiple text blocks', async () => {
+    createMock.mockResolvedValue({
+      content: [
+        { type: 'text', text: 'First part.' },
+        { type: 'text', text: 'Second part.' },
+      ],
     })
 
     const result = await sendViaOpenClaw({
@@ -417,6 +295,20 @@ describe('sendViaOpenClaw', () => {
       attachments: [],
     })
 
-    expect(result).toBe('plain string response')
+    expect(result).toBe('First part.\nSecond part.')
+  })
+
+  it('returns null when response has no text blocks', async () => {
+    createMock.mockResolvedValue({
+      content: [],
+    })
+
+    const result = await sendViaOpenClaw({
+      gatewayToken: 'tok',
+      message: 'hi',
+      attachments: [],
+    })
+
+    expect(result).toBeNull()
   })
 })

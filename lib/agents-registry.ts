@@ -1,5 +1,4 @@
 import { readFileSync, existsSync, readdirSync } from 'fs'
-import { execSync } from 'child_process'
 import { join, basename } from 'path'
 import bundledRegistry from '@/lib/agents.json'
 import type { Agent } from '@/lib/types'
@@ -393,118 +392,16 @@ function discoverAgents(workspacePath: string): AgentEntry[] | null {
   return discovered.length > 0 ? discovered : null
 }
 
-// ---------------------------------------------------------------------------
-// CLI-based multi-workspace discovery (openclaw agents list)
-// ---------------------------------------------------------------------------
-
-/**
- * Raw entry from `openclaw agents list --json`.
- *
- * Real CLI output shape (verified against OpenClaw docs + live CLI):
- *   { id, identityName, identityEmoji, identitySource,
- *     workspace, agentDir, model, bindings, isDefault, routes }
- */
-interface CliAgentEntry {
-  id: string
-  identityName?: string
-  identityEmoji?: string
-  workspace?: string
-  isDefault?: boolean
-}
-
-/**
- * Call `openclaw agents list --json` and return parsed entries.
- * Returns null on any failure (CLI not found, bad JSON, timeout).
- */
-export function listCliAgents(openclawBin: string): CliAgentEntry[] | null {
-  try {
-    const raw = execSync(`${openclawBin} agents list --json`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-    })
-    const parsed = JSON.parse(raw)
-    const agents: unknown[] = Array.isArray(parsed) ? parsed : []
-    if (agents.length === 0) return null
-    return agents as CliAgentEntry[]
-  } catch {
-    return null
-  }
-}
-
-/**
- * Scan additional workspaces found via CLI that differ from the primary
- * WORKSPACE_PATH. For each extra workspace, run discoverAgents() and
- * merge results into the existing registry.
- *
- * Agents from other workspaces are independent (no cross-workspace hierarchy).
- * If the other workspace has a root orchestrator, it becomes a top-level peer
- * in the primary workspace's registry.
- */
-function mergeExtraWorkspaces(
-  existing: AgentEntry[],
-  cliAgents: CliAgentEntry[],
-  primaryWorkspace: string,
-): AgentEntry[] {
-  const existingIds = new Set(existing.map(a => a.id))
-  const added: AgentEntry[] = []
-  let colorIndex = existing.length
-
-  for (const cli of cliAgents) {
-    const ws = cli.workspace
-    // Skip agents whose workspace matches the primary (already discovered)
-    if (!ws || ws === primaryWorkspace) continue
-
-    // Try discovering agents from this workspace's filesystem
-    const discovered = discoverAgents(ws)
-    if (discovered) {
-      for (const agent of discovered) {
-        if (existingIds.has(agent.id)) continue
-        // Agents from other workspaces are top-level peers (no cross-workspace hierarchy)
-        if (agent.reportsTo && !existingIds.has(agent.reportsTo)) {
-          agent.reportsTo = null
-        }
-        added.push(agent)
-        existingIds.add(agent.id)
-      }
-    } else {
-      // Workspace has no agents/ dir — create a minimal entry from CLI identity
-      const id = cli.id
-      if (existingIds.has(id)) continue
-      const name = cli.identityName || slugToName(id)
-      added.push({
-        id,
-        name,
-        title: 'Agent',
-        reportsTo: null,
-        directReports: [],
-        soulPath: null,
-        voiceId: null,
-        color: DISCOVER_COLORS[colorIndex++ % DISCOVER_COLORS.length],
-        emoji: cli.identityEmoji || name.charAt(0).toUpperCase(),
-        tools: ['read', 'write'],
-        memoryPath: null,
-        description: `${name} agent.`,
-      })
-      existingIds.add(id)
-    }
-  }
-
-  return [...existing, ...added]
-}
-
 /**
  * Load the agent registry.
  *
  * Resolution order:
  *   1. $WORKSPACE_PATH/clawport/agents.json  (user's own config)
  *   2. Auto-discovered from $WORKSPACE_PATH   (agents/ directory scan)
- *      + merged with other workspaces from `openclaw agents list --json`
- *   3. CLI-only discovery (scans each agent's workspace)
- *   4. Bundled lib/agents.json               (default example registry)
+ *   3. Bundled lib/agents.json               (default example registry)
  */
 export function loadRegistry(): AgentEntry[] {
   const workspacePath = process.env.WORKSPACE_PATH
-  const openclawBin = process.env.OPENCLAW_BIN
 
   if (workspacePath) {
     // 1. User-provided override
@@ -520,26 +417,9 @@ export function loadRegistry(): AgentEntry[] {
 
     // 2. Auto-discover from primary workspace filesystem
     const discovered = discoverAgents(workspacePath)
-
-    // 2b. Merge agents from other workspaces known to the CLI
-    if (discovered && openclawBin) {
-      const cliAgents = listCliAgents(openclawBin)
-      if (cliAgents && cliAgents.length > 1) {
-        return mergeExtraWorkspaces(discovered, cliAgents, workspacePath)
-      }
-      return discovered
-    }
     if (discovered) return discovered
-
-    // 3. CLI-only: no primary workspace agents, scan each CLI agent's workspace
-    if (openclawBin) {
-      const cliAgents = listCliAgents(openclawBin)
-      if (cliAgents) {
-        return mergeExtraWorkspaces([], cliAgents, '')
-      }
-    }
   }
 
-  // 4. Bundled fallback
+  // 3. Bundled fallback
   return bundledRegistry as AgentEntry[]
 }

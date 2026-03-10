@@ -14,10 +14,10 @@ export function CronSystemSection() {
     <>
       <Heading>Cron System</Heading>
       <Paragraph>
-        ClawPort provides a full cron monitoring dashboard with three views:
+        Golden AI provides a full cron monitoring dashboard with three views:
         overview (health donut, attention cards, error banners), weekly schedule
         (7-day calendar grid), and pipeline graph (React Flow dependency
-        visualization). Data is fetched from the OpenClaw CLI and auto-refreshes
+        visualization). Data is fetched from the CLI and auto-refreshes
         every 60 seconds.
       </Paragraph>
 

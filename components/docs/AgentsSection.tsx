@@ -15,14 +15,14 @@ export function AgentsSection() {
     <>
       <Heading>Agents</Heading>
       <Paragraph>
-        ClawPort automatically discovers your agents from your OpenClaw
+        Golden AI automatically discovers your agents from your
         workspace. No configuration is needed -- if you have agents in your
-        workspace, ClawPort will find and display them.
+        workspace, Golden AI will find and display them.
       </Paragraph>
 
       <SubHeading>Auto-Discovery (Default)</SubHeading>
       <Paragraph>
-        ClawPort scans <InlineCode>$WORKSPACE_PATH/agents/</InlineCode> for
+        Golden AI scans <InlineCode>$WORKSPACE_PATH/agents/</InlineCode> for
         subdirectories containing a <InlineCode>SOUL.md</InlineCode> file. Each
         becomes an agent with:
       </Paragraph>
@@ -59,7 +59,7 @@ export function AgentsSection() {
       </Paragraph>
       <CodeBlock>{`$WORKSPACE_PATH/clawport/agents.json`}</CodeBlock>
       <Paragraph>
-        ClawPort checks for this file on every request. If it exists, it
+        Golden AI checks for this file on every request. If it exists, it
         replaces auto-discovery entirely. If it's missing or contains invalid
         JSON, auto-discovery is used instead.
       </Paragraph>
@@ -233,7 +233,7 @@ export function AgentsSection() {
       <Paragraph>
         Each agent can have per-agent emoji and/or profile image overrides via
         the Settings page. These are stored in{" "}
-        <InlineCode>ClawPortSettings.agentOverrides</InlineCode> keyed by agent ID.
+        <InlineCode>ClawPortSettings.agentOverrides</InlineCode> (in localStorage) keyed by agent ID.
         The <InlineCode>getAgentDisplay()</InlineCode> function resolves the
         effective visual for each agent, considering overrides.
       </Paragraph>

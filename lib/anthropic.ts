@@ -1,14 +1,13 @@
 /**
- * OpenClaw gateway integration for vision (image) messages.
+ * Anthropic SDK integration for vision (image) messages.
  *
- * The gateway's /v1/chat/completions endpoint strips image_url content parts.
- * Images work through the agent pipeline (chat.send), which is the same path
- * Discord/Telegram/etc use. We invoke the CLI to send, then poll chat.history.
+ * Replaces the previous OpenClaw CLI gateway approach with direct
+ * Anthropic API calls using @anthropic-ai/sdk.
  *
- * Flow: extract images → CLI chat.send → poll chat.history → extract response
+ * Flow: extract images → Anthropic messages API with vision → return response
  */
 
-import { execFile } from 'child_process'
+import Anthropic from '@anthropic-ai/sdk'
 import type { ApiMessage, ContentPart } from './validation'
 
 export interface OpenClawAttachment {
@@ -79,36 +78,10 @@ export function buildTextPrompt(systemPrompt: string, messages: ApiMessage[]): s
 }
 
 /**
- * Run openclaw CLI and return stdout, or null on error.
- */
-export function execCli(
-  bin: string,
-  args: string[],
-  timeoutMs: number
-): Promise<string | null> {
-  return new Promise((resolve) => {
-    execFile(bin, args, { timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 }, (err, stdout, stderr) => {
-      if (err) {
-        console.error('execCli error:', err.message)
-        if (stderr) console.error('stderr:', stderr)
-        resolve(null)
-        return
-      }
-      resolve(stdout)
-    })
-  })
-}
-
-/**
- * Send a vision message through the OpenClaw gateway via CLI.
+ * Send a vision message directly to the Anthropic API.
  *
- * Two-step process:
- * 1. `openclaw gateway call chat.send` — fires the message (returns immediately)
- * 2. Poll `openclaw gateway call chat.history` — wait for the assistant response
- *
- * Images must be resized client-side to fit within the OS argument size limit.
- *
- * Returns the assistant's response text, or null on failure.
+ * Builds a messages API request with image content blocks and returns
+ * the assistant's response text, or null on failure.
  */
 export async function sendViaOpenClaw(opts: {
   gatewayToken: string
@@ -117,89 +90,49 @@ export async function sendViaOpenClaw(opts: {
   sessionKey?: string
   timeoutMs?: number
 }): Promise<string | null> {
-  const openclawBin = process.env.OPENCLAW_BIN || 'openclaw'
-  const sessionKey = opts.sessionKey || 'agent:main:clawport'
-  const idempotencyKey = `clawport-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-  const timeoutMs = opts.timeoutMs || 60000
-  const token = opts.gatewayToken
-
-  // Timestamp before sending — used to identify the new response
-  const sendTs = Date.now()
-
-  // Step 1: Send the message via chat.send
-  const sendParams = JSON.stringify({
-    sessionKey,
-    idempotencyKey,
-    message: opts.message,
-    attachments: opts.attachments,
-  })
-
-  const sendResult = await execCli(openclawBin, [
-    'gateway', 'call', 'chat.send',
-    '--params', sendParams,
-    '--token', token,
-    '--json',
-  ], 15000)
-
-  if (sendResult === null) {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    console.error('sendViaOpenClaw: ANTHROPIC_API_KEY is not set')
     return null
   }
 
-  // Verify send was accepted
+  const client = new Anthropic({ apiKey })
+
+  // Build content blocks: text prompt + image attachments
+  const content: Anthropic.MessageCreateParams['messages'][0]['content'] = []
+
+  if (opts.message) {
+    content.push({ type: 'text', text: opts.message })
+  }
+
+  for (const attachment of opts.attachments) {
+    content.push({
+      type: 'image',
+      source: {
+        type: 'base64',
+        media_type: attachment.mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
+        data: attachment.content,
+      },
+    })
+  }
+
   try {
-    const sendData = JSON.parse(sendResult)
-    if (sendData.status !== 'started' && !sendData.runId) {
-      console.error('sendViaOpenClaw: unexpected send response:', sendResult)
-      return null
-    }
-  } catch {
-    console.error('sendViaOpenClaw: failed to parse send response:', sendResult)
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content }],
+    })
+
+    // Extract text from response content blocks
+    const textBlocks = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map(block => block.text)
+
+    return textBlocks.join('\n') || null
+  } catch (err) {
+    console.error('sendViaOpenClaw error:', err)
     return null
   }
-
-  // Step 2: Poll chat.history for the assistant response
-  const pollIntervalMs = 2000
-  const historyParams = JSON.stringify({ sessionKey })
-  const deadline = sendTs + timeoutMs
-
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, pollIntervalMs))
-
-    const historyResult = await execCli(openclawBin, [
-      'gateway', 'call', 'chat.history',
-      '--params', historyParams,
-      '--token', token,
-      '--json',
-    ], 10000)
-
-    if (!historyResult) continue
-
-    try {
-      const history = JSON.parse(historyResult)
-      const messages = history.messages || []
-      if (messages.length === 0) continue
-
-      const lastMsg = messages[messages.length - 1]
-
-      // Wait for an assistant message that arrived after we sent
-      if (lastMsg.role === 'assistant' && lastMsg.timestamp >= sendTs) {
-        const content = lastMsg.content
-        if (typeof content === 'string') return content
-        if (Array.isArray(content)) {
-          const textParts = content
-            .filter((p: { type: string }) => p.type === 'text')
-            .map((p: { text: string }) => p.text)
-            .join('\n')
-          return textParts || null
-        }
-      }
-    } catch {
-      // Parse error — try again next poll
-    }
-  }
-
-  console.error('sendViaOpenClaw: timed out waiting for response')
-  return null
 }
 
 function parseDataUrl(url: string): { mediaType: string; data: string } {

@@ -1,12 +1,7 @@
 export const runtime = 'nodejs'
 
 import { getAgent } from '@/lib/agents'
-import OpenAI from 'openai'
-
-const openai = new OpenAI({
-  baseURL: 'http://localhost:18789/v1',
-  apiKey: process.env.OPENCLAW_GATEWAY_TOKEN,
-})
+import Anthropic from '@anthropic-ai/sdk'
 
 const MAX_TITLE = 500
 const MAX_DESC = 5000
@@ -88,32 +83,35 @@ Help the user with this ticket. Stay in character as ${agent.name}, ${agent.titl
     : ticketContext
 
   try {
-    const stream = await openai.chat.completions.create({
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+
+    const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
-      stream: true,
-      messages: [
-        { role: 'system' as const, content: systemPrompt },
-        ...messages.map(m => ({ role: m.role, content: m.content })),
-      ] as OpenAI.ChatCompletionMessageParam[],
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
     })
 
     const streamBody = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder()
         try {
-          for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || ''
-            if (content) {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
-              )
+          for await (const event of stream) {
+            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+              const content = event.delta.text
+              if (content) {
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+                )
+              }
             }
           }
           controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         } catch (err) {
           const errMsg = err instanceof Error ? err.message : 'Stream interrupted'
           console.error(`Kanban chat stream error [agentId=${id}]:`, errMsg)
-          // Signal error to client before closing
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`)
           )
@@ -135,7 +133,7 @@ Help the user with this ticket. Stay in character as ${agent.name}, ${agent.titl
     const errMsg = err instanceof Error ? err.message : 'Unknown error'
     console.error(`Kanban chat API error [agentId=${id}]:`, errMsg)
     return new Response(
-      JSON.stringify({ error: 'Chat failed. Make sure OpenClaw gateway is running.' }),
+      JSON.stringify({ error: 'Chat failed. Make sure ANTHROPIC_API_KEY is set correctly.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }

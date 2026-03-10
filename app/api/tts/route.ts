@@ -1,13 +1,25 @@
 export const runtime = 'nodejs'
 
-import OpenAI from 'openai'
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || ''
 
-const openai = new OpenAI({
-  baseURL: 'http://localhost:18789/v1',
-  apiKey: process.env.OPENCLAW_GATEWAY_TOKEN,
-})
+// Default ElevenLabs voice IDs
+const VOICE_MAP: Record<string, string> = {
+  alloy: 'pNInz6obpgDQGcFmaJgB',    // Adam
+  echo: 'VR6AewLTigWG4xSOukaG',      // Arnold
+  fable: 'jBpfuIE2acCO8z3wKNLl',     // Callum
+  nova: 'ThT5KcBeYPX3keUQqHPh',      // Dorothy
+  shimmer: 'AZnzlk1XvdvUeBnXmlld',   // Domi
+  onyx: 'yoZ06aMxZJJ28mfd3POQ',      // Sam
+}
 
 export async function POST(request: Request) {
+  if (!ELEVENLABS_API_KEY) {
+    return new Response(
+      JSON.stringify({ error: 'TTS not available. Set ELEVENLABS_API_KEY in .env.local.' }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   try {
     const { text, voice } = await request.json()
 
@@ -18,11 +30,33 @@ export async function POST(request: Request) {
       })
     }
 
-    const response = await openai.audio.speech.create({
-      model: 'tts-1',
-      voice: voice || 'alloy',
-      input: text,
+    const voiceId = VOICE_MAP[voice || 'alloy'] || VOICE_MAP.alloy
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_API_KEY,
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_monolingual_v1',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.5,
+        },
+      }),
     })
+
+    if (!response.ok) {
+      const errText = await response.text()
+      console.error('ElevenLabs TTS error:', response.status, errText)
+      return new Response(
+        JSON.stringify({ error: `TTS failed (${response.status})` }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
     const buffer = Buffer.from(await response.arrayBuffer())
 
@@ -35,7 +69,7 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error('TTS API error:', err)
     return new Response(
-      JSON.stringify({ error: 'TTS failed. Make sure OpenClaw gateway is running.' }),
+      JSON.stringify({ error: 'TTS failed. Check ELEVENLABS_API_KEY configuration.' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }

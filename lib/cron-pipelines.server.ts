@@ -1,18 +1,20 @@
 /**
  * Server-only pipeline loader — reads pipeline definitions from
- * $WORKSPACE_PATH/clawport/pipelines.json when available.
+ * data/pipelines.json in the project directory.
  */
 
 import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { resolve } from 'path'
 import type { Pipeline } from './cron-pipelines'
 
-/** Load pipelines from workspace config. Returns [] if not configured. */
-export function loadPipelines(): Pipeline[] {
-  const workspacePath = process.env.WORKSPACE_PATH
-  if (!workspacePath) return []
+/** Resolve the pipelines.json path within the project's data/ directory. */
+export function getPipelinesPath(): string {
+  return resolve(process.cwd(), 'data', 'pipelines.json')
+}
 
-  const pipelinesPath = join(workspacePath, 'clawport', 'pipelines.json')
+/** Load pipelines from project data. Returns [] if not configured. */
+export function loadPipelines(): Pipeline[] {
+  const pipelinesPath = getPipelinesPath()
   if (!existsSync(pipelinesPath)) return []
 
   try {

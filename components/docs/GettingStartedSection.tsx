@@ -15,9 +15,9 @@ export function GettingStartedSection() {
     <>
       <Heading>Getting Started</Heading>
       <Paragraph>
-        This guide walks you through getting ClawPort running against your own
-        OpenClaw instance. ClawPort is a Next.js 16 dashboard for managing,
-        monitoring, and talking directly to your OpenClaw AI agents.
+        This guide walks you through getting Golden AI running against your own
+        workspace. Golden AI is a Next.js 16 dashboard for managing,
+        monitoring, and talking directly to your AI agents.
       </Paragraph>
 
       <SubHeading>Prerequisites</SubHeading>
@@ -28,14 +28,14 @@ export function GettingStartedSection() {
             -- verify with <InlineCode>node -v</InlineCode>
           </>,
           <>
-            <strong style={{ color: "var(--text-primary)" }}>OpenClaw</strong>{" "}
+            <strong style={{ color: "var(--text-primary)" }}>OpenClaw CLI</strong>{" "}
             -- installed and working: <InlineCode>openclaw --version</InlineCode>
           </>,
           <>
             <strong style={{ color: "var(--text-primary)" }}>
-              OpenClaw gateway running
+              Gateway running
             </strong>{" "}
-            -- ClawPort talks to the gateway at{" "}
+            -- Golden AI talks to the gateway at{" "}
             <InlineCode>localhost:18789</InlineCode>
           </>,
         ]}
@@ -51,7 +51,7 @@ export function GettingStartedSection() {
         {`# Install globally (package: clawport-ui, command: clawport)
 npm install -g clawport-ui
 
-# Run the setup wizard (auto-detects your OpenClaw config)
+# Run the setup wizard (auto-detects your workspace config)
 clawport setup
 
 # Start the dev server
@@ -75,7 +75,7 @@ cd clawport-ui
 # Install dependencies
 npm install
 
-# Auto-detect your OpenClaw config and write .env.local
+# Auto-detect your workspace config and write .env.local
 npm run setup
 
 # Start the dev server
@@ -93,7 +93,7 @@ npm run dev`}
         <InlineCode>npm run setup</InlineCode>. It auto-detects your{" "}
         <InlineCode>WORKSPACE_PATH</InlineCode>,{" "}
         <InlineCode>OPENCLAW_BIN</InlineCode>, and gateway token from your local
-        OpenClaw installation.
+        installation.
       </Paragraph>
       <Paragraph>
         To configure manually, copy the template and edit:
@@ -106,7 +106,7 @@ npm run dev`}
           [
             <InlineCode key="ws">WORKSPACE_PATH</InlineCode>,
             "Yes",
-            "Path to your OpenClaw workspace directory (default: ~/.openclaw/workspace)",
+            "Path to your workspace directory (default: ~/.openclaw/workspace)",
           ],
           [
             <InlineCode key="bin">OPENCLAW_BIN</InlineCode>,
@@ -128,7 +128,7 @@ npm run dev`}
 
       <Callout type="tip">
         No separate AI API keys are needed. All AI calls (chat, vision, TTS,
-        transcription) route through the OpenClaw gateway. One subscription, one
+        transcription) route through the gateway. One subscription, one
         token.
       </Callout>
 
@@ -158,7 +158,7 @@ npm run dev`}
 
       <SubHeading>Start the Gateway</SubHeading>
       <Paragraph>
-        ClawPort expects the OpenClaw gateway running at{" "}
+        Golden AI expects the gateway running at{" "}
         <InlineCode>localhost:18789</InlineCode>. Start it in a separate terminal:
       </Paragraph>
       <CodeBlock>{`openclaw gateway run`}</CodeBlock>
@@ -171,7 +171,7 @@ npm run dev`}
 
       <SubHeading>First-Run Onboarding</SubHeading>
       <Paragraph>
-        On your first visit, ClawPort launches the onboarding wizard (5 steps):
+        On your first visit, Golden AI launches the onboarding wizard (5 steps):
       </Paragraph>
       <NumberedList
         items={[

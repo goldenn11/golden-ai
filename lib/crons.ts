@@ -1,105 +1,133 @@
-import { CronJob, CronDelivery } from '@/lib/types'
-import { execSync } from 'child_process'
-import { parseSchedule, describeCron } from './cron-utils'
-import { requireEnv } from '@/lib/env'
+import { CronJob } from '@/lib/types'
+import { describeCron } from './cron-utils'
 import { loadRegistry } from '@/lib/agents-registry'
+import { fetchCronRunHistory } from '@/lib/cron-logger'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 
 /**
- * Match a cron job name to an agent by prefix.
- * Tries each known agent ID as a prefix (longest first to avoid
- * partial matches, e.g. "seo-team" matches before "seo").
+ * Agent descriptions pulled from the registry, keyed by agent ID.
+ * Used to enrich cron job entries with context about what the agent does.
  */
-function matchAgent(name: string, agentIds: string[]): string | null {
-  const sorted = [...agentIds].sort((a, b) => b.length - a.length)
-  for (const id of sorted) {
-    if (name === id || name.startsWith(id + '-')) return id
+function getAgentDescriptions(): Map<string, string> {
+  const registry = loadRegistry()
+  return new Map(registry.map(a => [a.id, a.description]))
+}
+
+/**
+ * Read cron job definitions from vercel.json.
+ * Each entry has a path like "/api/crons/scribe" and a cron schedule.
+ */
+function readVercelCrons(): { path: string; schedule: string }[] {
+  try {
+    const vercelJsonPath = resolve(process.cwd(), 'vercel.json')
+    const raw = readFileSync(vercelJsonPath, 'utf-8')
+    const parsed = JSON.parse(raw)
+    if (parsed.crons && Array.isArray(parsed.crons)) {
+      return parsed.crons
+    }
+    return []
+  } catch {
+    return []
   }
+}
+
+/**
+ * Compute the next occurrence of a 5-field cron expression from a given date.
+ * Supports: minute, hour, day-of-month(*), month(*), day-of-week.
+ * Only handles the patterns we actually use (specific min/hour, * or specific dow).
+ */
+function computeNextRun(expression: string, from: Date = new Date()): Date | null {
+  const parts = expression.trim().split(/\s+/)
+  if (parts.length !== 5) return null
+
+  const [minStr, hourStr, , , dowStr] = parts
+  const targetMin = parseInt(minStr, 10)
+  const targetHour = parseInt(hourStr, 10)
+  if (isNaN(targetMin) || isNaN(targetHour)) return null
+
+  // Parse allowed days of week (0=Sun, 6=Sat)
+  let allowedDays: number[] | null = null // null means every day
+  if (dowStr !== '*') {
+    if (dowStr.includes('-')) {
+      const [start, end] = dowStr.split('-').map(Number)
+      if (!isNaN(start) && !isNaN(end)) {
+        allowedDays = []
+        for (let d = start; d <= end; d++) allowedDays.push(d)
+      }
+    } else if (dowStr.includes(',')) {
+      allowedDays = dowStr.split(',').map(Number).filter(n => !isNaN(n))
+    } else {
+      const d = parseInt(dowStr, 10)
+      if (!isNaN(d)) allowedDays = [d]
+    }
+  }
+
+  // Start searching from the current time
+  const candidate = new Date(from)
+  candidate.setUTCSeconds(0, 0)
+
+  // If the target time today has already passed, start from tomorrow
+  if (
+    candidate.getUTCHours() > targetHour ||
+    (candidate.getUTCHours() === targetHour && candidate.getUTCMinutes() >= targetMin)
+  ) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1)
+  }
+
+  candidate.setUTCHours(targetHour, targetMin, 0, 0)
+
+  // Find the next matching day (up to 8 days out)
+  for (let i = 0; i < 8; i++) {
+    const dow = candidate.getUTCDay()
+    if (!allowedDays || allowedDays.includes(dow)) {
+      return candidate
+    }
+    candidate.setUTCDate(candidate.getUTCDate() + 1)
+  }
+
   return null
 }
 
+/**
+ * Extract agent ID from a Vercel cron path like "/api/crons/scribe" -> "scribe"
+ */
+function extractAgentId(path: string): string {
+  const segments = path.split('/')
+  return segments[segments.length - 1] || ''
+}
+
 export async function getCrons(): Promise<CronJob[]> {
-  try {
-    const openclawBin = requireEnv('OPENCLAW_BIN')
-    const raw = execSync(`${openclawBin} cron list --json`, {
-      encoding: 'utf-8',
-      timeout: 10000,
-    })
+  const vercelCrons = readVercelCrons()
+  const agentDescriptions = getAgentDescriptions()
+  const now = new Date()
 
-    const parsed = JSON.parse(raw)
-    const jobs: unknown[] = Array.isArray(parsed)
-      ? parsed
-      : parsed.jobs ?? parsed.data ?? []
+  // Fetch run history from Notion (gracefully returns empty map if unconfigured)
+  const runHistory = await fetchCronRunHistory()
 
-    // Load known agent IDs for dynamic cron-to-agent matching
-    const agentIds = loadRegistry().map(a => a.id)
+  return vercelCrons.map((entry) => {
+    const agentId = extractAgentId(entry.path)
+    const description = agentDescriptions.get(agentId) || null
+    const nextRunDate = computeNextRun(entry.schedule, now)
+    const history = runHistory.get(agentId)
 
-    return jobs.map((job: unknown) => {
-      const j = job as Record<string, unknown>
-      const state = (j.state as Record<string, unknown>) || {}
-      const name = String(j.name || '')
-      const { expression: schedule, timezone } = parseSchedule(j.schedule)
-
-      // Status can be in state.status or directly on j.status
-      const rawStatus = state.status ?? j.status ?? ''
-      let status: 'ok' | 'error' | 'idle' = 'idle'
-      if (rawStatus === 'error' || rawStatus === 'failed') {
-        status = 'error'
-      } else if (rawStatus === 'ok' || rawStatus === 'success' || rawStatus === 'completed') {
-        status = 'ok'
-      }
-
-      // nextRun: try state.nextRunAtMs first, then state.nextRunAt
-      const nextRunMs = state.nextRunAtMs ?? state.nextRunAt ?? j.nextRunAtMs ?? j.nextRunAt
-      const nextRun = nextRunMs
-        ? new Date(Number(nextRunMs)).toISOString()
-        : null
-
-      // lastRun: try state.lastRunAtMs, state.lastRunAt, or top-level equivalents
-      const lastRunRaw = state.lastRunAtMs ?? state.lastRunAt ?? j.lastRunAtMs ?? j.lastRunAt ?? j.last
-      const lastRun = lastRunRaw
-        ? (typeof lastRunRaw === 'number' ? new Date(lastRunRaw).toISOString() : String(lastRunRaw))
-        : null
-
-      const lastError = (state.lastError ?? state.error ?? j.lastError) ? String(state.lastError ?? state.error ?? j.lastError) : null
-
-      // Delivery config
-      const rawDelivery = j.delivery as Record<string, unknown> | undefined
-      let delivery: CronDelivery | null = null
-      if (rawDelivery && typeof rawDelivery === 'object') {
-        delivery = {
-          mode: String(rawDelivery.mode || ''),
-          channel: String(rawDelivery.channel || ''),
-          to: rawDelivery.to ? String(rawDelivery.to) : null,
-        }
-      }
-
-      // Rich state fields
-      const lastDurationMs = typeof state.lastDurationMs === 'number' ? state.lastDurationMs : null
-      const consecutiveErrors = typeof state.consecutiveErrors === 'number' ? state.consecutiveErrors : 0
-      const lastDeliveryStatus = typeof state.lastDeliveryStatus === 'string' ? state.lastDeliveryStatus : null
-
-      return {
-        id: String(j.id || j.name || ''),
-        name,
-        schedule,
-        scheduleDescription: describeCron(schedule),
-        timezone,
-        status,
-        lastRun,
-        nextRun,
-        lastError,
-        agentId: matchAgent(name, agentIds),
-        description: typeof j.description === 'string' ? j.description : null,
-        enabled: j.enabled !== false,
-        delivery,
-        lastDurationMs,
-        consecutiveErrors,
-        lastDeliveryStatus,
-      }
-    })
-  } catch (err) {
-    throw new Error(
-      `Failed to fetch cron jobs: ${err instanceof Error ? err.message : String(err)}`
-    )
-  }
+    return {
+      id: agentId,
+      name: agentId,
+      schedule: entry.schedule,
+      scheduleDescription: describeCron(entry.schedule),
+      timezone: null,
+      status: history?.lastStatus ?? ('idle' as const),
+      lastRun: history?.lastRun ?? null,
+      nextRun: nextRunDate ? nextRunDate.toISOString() : null,
+      lastError: history?.lastError ?? null,
+      agentId,
+      description,
+      enabled: true,
+      delivery: null,
+      lastDurationMs: history?.lastDurationMs ?? null,
+      consecutiveErrors: history?.consecutiveErrors ?? 0,
+      lastDeliveryStatus: null,
+    }
+  })
 }
